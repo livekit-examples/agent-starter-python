@@ -1,0 +1,154 @@
+---
+globs: "**/test_*.py,tests/*.py,**/tests/**/*.py"
+description: "LiveKit Agent testing patterns and evaluation framework"
+---
+
+# LiveKit Agent Testing Patterns
+
+Use LiveKit's evaluation-based testing framework from [tests/test_agent.py](mdc:tests/test_agent.py).
+
+## Core Testing Pattern
+
+### Basic Agent Test Structure
+```python
+@pytest.mark.asyncio
+async def test_conversational_behavior():
+    """Test agent behavior with LLM-based evaluation."""
+    async with AgentSession(llm=test_llm) as session:
+        await session.start(YourAgent())
+        
+        result = await session.run(user_input="Test scenario input")
+        
+        await result.expect.next_event().is_message(role="assistant").judge(
+            llm=judge_llm,
+            intent="Expected behavioral outcome description"
+        )
+```
+
+### Key Testing Guidelines
+
+#### Test Categories to Implement
+- **Expected Behavior**: Core functionality works correctly
+- **Tool Usage**: Function calls with proper arguments  
+- **Error Handling**: Graceful failure responses
+- **Factual Grounding**: Accurate information, admits unknowns
+- **Misuse Resistance**: Refuses inappropriate requests
+
+#### Evaluation with `.judge()`
+- Use descriptive `intent` parameters for LLM evaluation
+- Test both successful and error conditions
+- Verify tool calls happen when expected
+- Check response quality and appropriateness
+
+## Testing Patterns
+
+### Tool Testing with Mocks
+Test error conditions and edge cases:
+```python
+@pytest.mark.asyncio
+async def test_tool_error_handling():
+    """Test graceful handling of tool errors."""
+    def mock_failing_tool():
+        raise Exception("Simulated error")
+    
+    with mock_tools(YourAgent, {"external_service": mock_failing_tool}):
+        async with AgentSession(llm=test_llm) as session:
+            await session.start(YourAgent())
+            
+            result = await session.run(user_input="Test tool failure scenario")
+            
+            await result.expect.next_event().is_message(role="assistant").judge(
+                llm=judge_llm, intent="Gracefully handles service unavailability"
+            )
+```
+
+### Conversation Flow Testing
+Test multi-turn interactions:
+```python
+@pytest.mark.asyncio
+async def test_conversation_flow():
+    """Test multi-turn conversation handling."""
+    async with AgentSession(llm=test_llm) as session:
+        await session.start(YourAgent())
+        
+        # First interaction
+        result1 = await session.run(user_input="Initial greeting")
+        await result1.expect.next_event().is_message(role="assistant").judge(
+            llm=judge_llm, intent="Responds appropriately to greeting"
+        )
+        
+        # Follow-up interaction
+        result2 = await session.run(user_input="Follow-up request")
+        await result2.expect.next_event().is_message(role="assistant").judge(
+            llm=judge_llm, intent="Maintains context from previous interaction"
+        )
+```
+
+### Tool Call Verification
+Test that tools are called with correct parameters:
+```python
+@pytest.mark.asyncio
+async def test_tool_parameters():
+    """Test tool is called with correct parameters."""
+    tool_calls = []
+    
+    def mock_api_tool(query: str):
+        tool_calls.append(query)
+        return f"API response for: {query}"
+    
+    with mock_tools(YourAgent, {"external_api": mock_api_tool}):
+        async with AgentSession(llm=test_llm) as session:
+            await session.start(YourAgent())
+            
+            result = await session.run(user_input="Test query requiring API call")
+            
+            # Verify tool was called
+            assert len(tool_calls) > 0
+            assert tool_calls[0]  # Verify parameter was passed
+            
+            await result.expect.next_event().is_message(role="assistant").judge(
+                llm=judge_llm, intent="Uses API response appropriately"
+            )
+```
+
+## Test Execution Commands
+
+### Running Tests
+- `uv run pytest` - Run full test suite including evaluations
+- `uv run pytest tests/test_agent.py` - Run specific test file
+- `uv run pytest tests/test_agent.py::test_specific` - Run specific test
+- `uv run pytest -v` - Verbose output with test names
+- `uv run pytest -s` - Show print statements and logs
+
+### Test Environment Setup
+Ensure proper test environment:
+```python
+# Required imports for testing
+import pytest
+from livekit.agents import Agent, AgentSession, RunContext
+from livekit.agents.integrations import openai  # or your chosen provider
+from livekit.agents.testing import mock_tools
+
+# Your agent import
+from your_module import YourAgent
+```
+
+### Debugging Tests
+- Use `logger.info()` in agent code for debugging
+- Add `print()` statements in test functions (run with `-s`)
+- Check test output for LLM evaluation details
+- Verify mock tools are called as expected
+
+## Best Practices
+
+### Test Design
+- Write specific, focused tests for individual features
+- Use descriptive test names and docstrings
+- Test both success and failure scenarios
+- Mock external dependencies for reliable tests
+
+### LLM Evaluation
+- Write clear, specific intent descriptions
+- Test edge cases and boundary conditions
+- Verify appropriate refusals for inappropriate requests
+- Check factual accuracy where applicable
