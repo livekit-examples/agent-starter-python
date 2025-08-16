@@ -92,6 +92,78 @@ This project includes a complete suite of evals, based on the LiveKit Agents [te
 uv run pytest
 ```
 
+## Package Manager Conversion
+
+This project includes a tool to convert between different Python package managers. The default is UV for fast, modern dependency management, but you can switch to your preferred package manager.
+
+### Supported Package Managers
+- **UV** (default) - Fast, modern Python package manager
+- **pip** - Standard Python package manager (generates `requirements.txt`)
+- **Poetry** - Dependency management with lock files
+- **Pipenv** - Python packaging tool with virtual environments
+- **PDM** - Modern Python package manager
+- **Hatch** - Modern, extensible Python project manager
+
+### Converting to a Different Package Manager
+
+```bash
+# Show available options
+make help
+
+# Convert to pip
+make convert-to-pip
+
+# Convert to Poetry
+make convert-to-poetry
+
+# Convert to Pipenv
+make convert-to-pipenv
+
+# Convert to PDM
+make convert-to-pdm
+
+# Convert to Hatch
+make convert-to-hatch
+
+# Rollback to previous package manager (interactive)
+make rollback
+
+# Rollback to a specific package manager backup
+make rollback PM=poetry
+make rollback PM=uv
+# Or use the script directly:
+./scripts/rollback.sh poetry
+```
+
+**⚠️ Important Notes:**
+- Converting will download the LiveKit Dockerfile templates and reset any custom Dockerfile modifications
+- Your original files are backed up to `.backup.{package-manager}/`
+- Lock files are NOT generated automatically - follow the instructions after conversion
+- Multiple conversions create multiple backups
+- Rollback supports both interactive mode (shows menu) and direct mode (specify package manager)
+
+## Building and Testing with Docker
+
+To test your agent in a production-like environment, build and run the Docker container locally:
+
+```bash
+# Build the Docker image
+docker build -t my-agent .
+
+# Run the container with environment variables (LiveKit variables are required, others as needed)
+docker run --rm \
+  -e LIVEKIT_URL=your-url \
+  -e LIVEKIT_API_KEY=your-key \
+  -e LIVEKIT_API_SECRET=your-secret \
+  -e OPENAI_API_KEY=your-key \
+  -e DEEPGRAM_API_KEY=your-key \
+  -e CARTESIA_API_KEY=your-key \
+  my-agent
+
+# Or use an env file
+docker run --rm --env-file .env.local my-agent
+```
+
 ## Using this template repo for your own project
 
 Once you've started your own project based on this repo, you should:
