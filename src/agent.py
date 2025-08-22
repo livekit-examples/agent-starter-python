@@ -1,8 +1,10 @@
 import logging
+import os
+import random
+import time
 
 from dotenv import load_dotenv
 from livekit.agents import (
-    NOT_GIVEN,
     Agent,
     AgentFalseInterruptionEvent,
     AgentSession,
@@ -15,123 +17,97 @@ from livekit.agents import (
     cli,
     metrics,
 )
-from livekit.agents.llm import function_tool
-from livekit.plugins import cartesia, deepgram, noise_cancellation, openai, silero
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from livekit.plugins import noise_cancellation
+from livekit.plugins import openai as openai_plugins
 
 logger = logging.getLogger("agent")
 
+# Načítaj projektové premenné prostredia (.env je náš hlavný zdroj),
+# a kvôli spätnému súladu aj .env.local zo šablóny
+load_dotenv()
 load_dotenv(".env.local")
 
 
 class Assistant(Agent):
-    def __init__(self) -> None:
-        super().__init__(
-            instructions="""You are a helpful voice AI assistant.
-            You eagerly assist users with their questions by providing information from your extensive knowledge.
-            Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
-            You are curious, friendly, and have a sense of humor.""",
-        )
+    """
+    Minimalistický agent - držíme len základné hooky.
+    """
 
-    # all functions annotated with @function_tool will be passed to the LLM when this
-    # agent is active
-    @function_tool
-    async def lookup_weather(self, context: RunContext, location: str):
-        """Use this tool to look up current weather information in the given location.
+    async def on_start(self, ctx: RunContext) -> None:
+        logger.info("Assistant started")
 
-        If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-
-        Args:
-            location: The location to look up weather information for (e.g. city name)
-        """
-
-        logger.info(f"Looking up weather for {location}")
-
-        return "sunny with a temperature of 70 degrees."
+    async def on_agent_interrupted(self, ev: AgentFalseInterruptionEvent, ctx: RunContext):
+        # Žiadne špeciálne správanie
+        pass
 
 
 def prewarm(proc: JobProcess):
-    proc.userdata["vad"] = silero.VAD.load()
+    """
+    Realtime model nepotrebuje externý VAD ani turn-detector; ponecháme no-op.
+    """
+    return
 
 
 async def entrypoint(ctx: JobContext):
-    # Logging setup
-    # Add any other context you want in all log entries here
-    ctx.log_context_fields = {
-        "room": ctx.room.name,
-    }
-
-    # Set up a voice AI pipeline using OpenAI, Cartesia, Deepgram, and the LiveKit turn detector
-    session = AgentSession(
-        # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
-        # See all providers at https://docs.livekit.io/agents/integrations/llm/
-        llm=openai.LLM(model="gpt-4o-mini"),
-        # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
-        # See all providers at https://docs.livekit.io/agents/integrations/stt/
-        stt=deepgram.STT(model="nova-3", language="multi"),
-        # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
-        # See all providers at https://docs.livekit.io/agents/integrations/tts/
-        tts=cartesia.TTS(voice="6f84f4b8-58a2-430c-8c79-688dad597532"),
-        # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
-        # See more at https://docs.livekit.io/agents/build/turns
-        turn_detection=MultilingualModel(),
-        vad=ctx.proc.userdata["vad"],
-        # allow the LLM to generate a response while waiting for the end of turn
-        # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
-        preemptive_generation=True,
+    """
+    Inicializácia Realtime session s OpenAI a pripojenie do LiveKit miestnosti.
+    """
+    # OpenAI Realtime model (audio + text). Model striktne bez dátumu:
+    rt_model = openai_plugins.realtime.RealtimeModel(
+        model="gpt-4o-realtime-preview",
+        voice="alloy",
+        modalities=["audio", "text"],
+        # API kľúč sa číta z OPENAI_API_KEY; parametre nechávame default.
     )
 
-    # To use a realtime model instead of a voice pipeline, use the following session setup instead:
-    # session = AgentSession(
-    #     # See all providers at https://docs.livekit.io/agents/integrations/realtime/
-    #     llm=openai.realtime.RealtimeModel()
-    # )
+    session = AgentSession(
+        llm=rt_model,
+    )
 
-    # sometimes background noise could interrupt the agent session, these are considered false positive interruptions
-    # when it's detected, you may resume the agent's speech
-    @session.on("agent_false_interruption")
-    def _on_agent_false_interruption(ev: AgentFalseInterruptionEvent):
-        logger.info("false positive interruption, resuming")
-        session.generate_reply(instructions=ev.extra_instructions or NOT_GIVEN)
+    # Konfigurovateľná BVC noise cancellation - default zapnutá, ale vypínateľná ENV premennou.
+    enable_bvc = os.getenv("ENABLE_BVC", "true").lower() in ("1", "true", "yes")
 
-    # Metrics collection, to measure pipeline performance
-    # For more information, see https://docs.livekit.io/agents/build/metrics/
-    usage_collector = metrics.UsageCollector()
+    room_input = RoomInputOptions(
+        noise_cancellation=noise_cancellation.BVC() if enable_bvc else None
+    )
 
-    @session.on("metrics_collected")
-    def _on_metrics_collected(ev: MetricsCollectedEvent):
-        metrics.log_metrics(ev.metrics)
-        usage_collector.collect(ev.metrics)
-
-    async def log_usage():
-        summary = usage_collector.get_summary()
-        logger.info(f"Usage: {summary}")
-
-    ctx.add_shutdown_callback(log_usage)
-
-    # # Add a virtual avatar to the session, if desired
-    # # For other providers, see https://docs.livekit.io/agents/integrations/avatar/
-    # avatar = hedra.AvatarSession(
-    #   avatar_id="...",  # See https://docs.livekit.io/agents/integrations/avatar/hedra
-    # )
-    # # Start the avatar and wait for it to join
-    # await avatar.start(session, room=ctx.room)
-
-    # Start the session, which initializes the voice pipeline and warms up the models
+    # Spusti session a pripoj agenta do miestnosti
     await session.start(
         agent=Assistant(),
         room=ctx.room,
-        room_input_options=RoomInputOptions(
-            # LiveKit Cloud enhanced noise cancellation
-            # - If self-hosting, omit this parameter
-            # - For telephony applications, use `BVCTelephony` for best results
-            noise_cancellation=noise_cancellation.BVC(),
-        ),
+        room_input_options=room_input,
     )
+    logger.info("Realtime session started")
 
-    # Join the room and connect to the user
-    await ctx.connect()
+
+def _on_metrics_collected(ev: MetricsCollectedEvent):
+    metrics.log_metrics(ev.metrics)
 
 
 if __name__ == "__main__":
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
+    # Exponenciálny backoff okolo spustenia aplikácie
+    max_retries = int(os.getenv("AGENT_MAX_RETRIES", "5"))
+    base_delay = float(os.getenv("AGENT_BACKOFF_BASE", "1.0"))
+    attempt = 0
+
+    while True:
+        try:
+            cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
+            break
+        except KeyboardInterrupt:
+            raise
+        except (ConnectionError, TimeoutError, OSError) as e:
+            attempt += 1
+            if attempt >= max_retries:
+                logger.error("Failed to start after %d attempts: %s", attempt, e)
+                raise
+            jitter = random.uniform(0, base_delay * 0.25)
+            delay = base_delay * (2 ** (attempt - 1)) + jitter
+            logger.info(
+                "Startup failed (%s). Retrying in %.1fs (%d/%d)...",
+                type(e).__name__,
+                delay,
+                attempt,
+                max_retries,
+            )
+            time.sleep(delay)
