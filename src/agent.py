@@ -5,6 +5,7 @@ import time
 
 from dotenv import load_dotenv
 from livekit.agents import (
+    NOT_GIVEN,
     Agent,
     AgentFalseInterruptionEvent,
     AgentSession,
@@ -37,7 +38,7 @@ class Assistant(Agent):
         logger.info("Assistant started")
 
     async def on_agent_interrupted(self, ev: AgentFalseInterruptionEvent, ctx: RunContext):
-        # Žiadne špeciálne správanie
+        # Žiadne špeciálne správanie na úrovni agenta
         pass
 
 
@@ -60,16 +61,24 @@ async def entrypoint(ctx: JobContext):
         # API kľúč sa číta z OPENAI_API_KEY; parametre nechávame default.
     )
 
-    session = AgentSession(
-        llm=rt_model,
-    )
+    session = AgentSession(llm=rt_model)
 
-    # Konfigurovateľná BVC noise cancellation - default zapnutá, ale vypínateľná ENV premennou.
+    # Konfigurovateľná BVC noise cancellation – default zapnutá, ale vypínateľná ENV premennou.
     enable_bvc = os.getenv("ENABLE_BVC", "true").lower() in ("1", "true", "yes")
-
     room_input = RoomInputOptions(
         noise_cancellation=noise_cancellation.BVC() if enable_bvc else None
     )
+
+    # ── Handler na false-positive interruption: pokračuj v reči
+    @session.on("agent_false_interruption")
+    def _on_agent_false_interruption(ev: AgentFalseInterruptionEvent):
+        logger.info("False positive interruption, resuming")
+        session.generate_reply(instructions=ev.extra_instructions or NOT_GIVEN)
+
+    # ── Metrics: loguj zozbierané metriky
+    @session.on("metrics_collected")
+    def _on_metrics_collected(ev: MetricsCollectedEvent):
+        metrics.log_metrics(ev.metrics)
 
     # Spusti session a pripoj agenta do miestnosti
     await session.start(
@@ -79,9 +88,8 @@ async def entrypoint(ctx: JobContext):
     )
     logger.info("Realtime session started")
 
-
-def _on_metrics_collected(ev: MetricsCollectedEvent):
-    metrics.log_metrics(ev.metrics)
+    # Dôležité: pripoj sa do roomu (mediálne spojenie)
+    await ctx.connect()
 
 
 if __name__ == "__main__":
