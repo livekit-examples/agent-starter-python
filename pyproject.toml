@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-starter-python"
-version = "1.0.0"
+version = "0.1.0"
 description = "Simple voice AI assistant built with LiveKit Agents for Python"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 dependencies = [
-    "livekit-agents[openai,turn-detector,silero,cartesia,deepgram]~=1.2",
+    "livekit-agents[openai]~=1.2",
     "livekit-plugins-noise-cancellation~=0.2",
     "python-dotenv",
 ]
