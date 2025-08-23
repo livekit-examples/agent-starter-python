@@ -19,14 +19,16 @@ jobs:
         version: "latest"
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: "3.12"
     
-    - name: Install dependencies
-      run: UV_GIT_LFS=1 uv sync --dev
+    - name: Install dependencies (dev + editable)
+      run: UV_GIT_LFS=1 uv sync --dev --editable .
         
     - name: Run tests
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        PYTHONPATH: .
       run: uv run pytest -v
+

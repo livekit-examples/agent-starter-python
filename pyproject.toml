@@ -4,21 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-starter-python"
-version = "1.0.0"
+version = "0.1.0"
 description = "Simple voice AI assistant built with LiveKit Agents for Python"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 dependencies = [
-    "livekit-agents[openai,turn-detector,silero,cartesia,deepgram]~=1.2",
+    "livekit-agents[openai]~=1.2",
     "livekit-plugins-noise-cancellation~=0.2",
     "python-dotenv",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest",
-    "pytest-asyncio",
-    "ruff",
+    "pytest~=8.0",
+    "pytest-asyncio~=0.23",
+    "ruff~=0.6",
 ]
 
 [tool.setuptools.packages.find]
@@ -27,13 +27,16 @@ where = ["src"]
 [tool.setuptools.package-dir]
 "" = "src"
 
+[tool.setuptools]
+py-modules = ["policy"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "B", "A", "C4", "UP", "SIM", "RUF"]
