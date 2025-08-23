@@ -29,4 +29,6 @@ jobs:
     - name: Run tests
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        PYTHONPATH: .
       run: uv run pytest -v
+
