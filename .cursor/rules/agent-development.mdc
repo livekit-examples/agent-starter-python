@@ -1,0 +1,171 @@
+
+# LiveKit Agent Workflows
+
+## Agent Architecture Overview
+
+LiveKit Agents implement conversational AI workflows through a structured pipeline:
+- **Speech-to-Text (STT)**: Convert audio input to text
+- **Large Language Model (LLM)**: Process conversation and generate responses
+- **Text-to-Speech (TTS)**: Convert text responses to audio
+- **Turn Detection**: Determine when user has finished speaking
+- **Voice Activity Detection (VAD)**: Detect speech presence
+
+## Agent Implementation Patterns
+
+### Core Agent Class
+```python
+from livekit.agents import Agent, RunContext, function_tool
+
+class ConversationalAgent(Agent):
+    def __init__(self):
+        super().__init__()
+        # Define agent behavior through instructions
+        self.instructions = """
+        System prompt defining:
+        - Agent personality and role
+        - Available capabilities
+        - Communication style
+        - Behavioral boundaries
+        """
+        
+    @function_tool
+    async def custom_capability(self, context: RunContext, parameter: str):
+        """Function tools extend agent capabilities beyond conversation.
+        
+        Args:
+            parameter: Clear description for LLM understanding
+        """
+        # Implementation logic
+        return "Tool result"
+```
+
+### Agent Lifecycle & Context
+
+#### RunContext Usage
+- **Session Access**: `context.room` for room information
+- **State Management**: Track conversation state across turns
+- **Event Handling**: Respond to room events and participant actions
+- **Resource Management**: Handle cleanup and resource disposal
+
+#### Conversation Flow
+1. **Audio Reception**: Agent receives participant audio stream
+2. **Speech Processing**: STT converts audio to text transcript
+3. **LLM Processing**: Language model generates response using instructions and tools
+4. **Audio Generation**: TTS converts response to audio
+5. **Turn Management**: System detects conversation turns and manages interruptions
+
+## Pipeline Configuration Patterns
+
+### Session Setup
+```python
+async def entrypoint(ctx: JobContext):
+    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
+    
+    # Configure the conversational AI pipeline
+    session = AgentSession(
+        stt=provider.STT(),           # Speech recognition
+        llm=provider.LLM(),           # Language understanding/generation  
+        tts=provider.TTS(),           # Speech synthesis
+        turn_detector=provider.TD(),   # End-of-turn detection
+        vad=provider.VAD()            # Voice activity detection
+    )
+    
+    # Start the agent workflow
+    session.start(YourAgent())
+```
+
+### Pipeline Variations
+
+#### Traditional Multi-Provider Pipeline
+- Separate providers for each component (STT, LLM, TTS)
+- Maximum flexibility in provider selection
+- Optimized for specific use cases (latency, quality, cost)
+
+#### Unified Provider Pipeline (e.g., OpenAI Realtime)
+- Single provider handles entire conversation flow
+- Reduced latency through integrated processing
+- Built-in voice activity detection and turn management
+
+## Function Tool Patterns
+
+### Tool Design Principles
+- **Clear Documentation**: LLM uses docstrings to understand tool purpose
+- **Error Handling**: Graceful failure with meaningful user feedback
+- **Async Implementation**: Non-blocking execution for real-time performance
+- **Context Awareness**: Leverage RunContext for session-specific behavior
+
+### Tool Categories
+- **Information Retrieval**: API calls, database queries, web searches
+- **Actions**: External system integration, state changes
+- **Computation**: Data processing, calculations, transformations
+- **Media Processing**: Image analysis, file handling, content generation
+
+## Voice Pipeline Optimization
+
+### Turn Detection Strategies
+- **VAD-Only**: Simple voice activity detection
+- **Semantic Turn Detection**: Context-aware conversation boundaries
+- **Hybrid Approach**: VAD + semantic analysis for optimal user experience
+
+### Latency Optimization
+- **Model Selection**: Balance capability vs. response time
+- **Streaming**: Real-time processing where supported
+- **Caching**: Reduce repeated processing overhead
+- **Connection Management**: Maintain persistent connections
+
+## Error Handling & Resilience
+
+### Common Failure Modes
+- **Provider Outages**: Network issues, service unavailability
+- **Audio Quality**: Poor input affecting transcription accuracy
+- **Tool Failures**: External service errors, timeout conditions
+- **Resource Limits**: Rate limiting, quota exhaustion
+
+### Resilience Patterns
+- **Graceful Degradation**: Reduced functionality during partial failures
+- **Retry Logic**: Intelligent retry with backoff strategies
+- **Fallback Providers**: Alternative services for critical components
+- **User Communication**: Clear error messages and recovery guidance
+
+## Testing Conversational Agents
+
+### LLM-Based Evaluation
+```python
+# Test conversational behavior with semantic evaluation
+async def test_agent_response():
+    async with AgentSession(llm=test_llm) as session:
+        await session.start(YourAgent())
+        result = await session.run(user_input="test scenario")
+        
+        # Evaluate response quality using LLM judgment
+        await result.expect.next_event().is_message(role="assistant").judge(
+            llm=judge_llm, 
+            intent="Expected behavior description"
+        )
+```
+
+### Tool Testing
+```python
+# Mock external dependencies for reliable testing
+with mock_tools(YourAgent, {"external_api": mock_response}):
+    # Test tool behavior under controlled conditions
+```
+
+## Monitoring & Observability
+
+### Built-in Metrics
+- **Performance**: Latency, throughput, error rates
+- **Usage**: Token consumption, API calls, session duration
+- **Quality**: Turn accuracy, interruption handling, user satisfaction
+
+### Custom Metrics Collection
+```python
+@session.on("metrics_collected")
+def handle_metrics(event: MetricsCollectedEvent):
+    # Process and forward metrics to monitoring systems
+    custom_analytics.track(event.metrics)
+```
+
+- STT: Audio duration, transcript time, streaming mode
+- LLM: Completion duration, token usage, TTFT
+- TTS: Audio duration, character count, generation time

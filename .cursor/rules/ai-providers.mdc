@@ -1,0 +1,267 @@
+---
+description: "LiveKit AI provider integrations and advanced configurations"
+---
+
+# AI Provider Integrations & Extensions
+
+Advanced patterns for integrating different AI providers and extending agent capabilities.
+
+## Provider Swapping Patterns
+
+### LLM Providers
+All follow consistent interfaces - easily swap between providers:
+
+#### OpenAI
+```python
+from livekit.agents.integrations import openai
+
+llm = openai.LLM(model="gpt-4o-mini")
+# Realtime API alternative
+llm = openai.realtime.RealtimeModel(
+    model="gpt-4o-realtime-preview",
+    voice="alloy",
+    temperature=0.8,
+)
+```
+
+#### Anthropic Claude
+```python
+from livekit.agents.integrations import anthropic
+
+llm = anthropic.LLM(model="claude-3-haiku")
+```
+
+#### Google Gemini
+```python
+from livekit.agents.integrations import google
+
+llm = google.LLM(model="gemini-1.5-flash")
+```
+
+#### Azure OpenAI
+```python
+from livekit.agents.integrations import azure_openai
+
+llm = azure_openai.LLM(
+    model="gpt-4o",
+    azure_endpoint="https://your-resource.openai.azure.com/",
+    api_version="2024-02-15-preview"
+)
+```
+
+### STT Providers
+
+#### Deepgram (Recommended)
+```python
+from livekit.agents.integrations import deepgram
+
+stt = deepgram.STT(
+    model="nova-3",
+    language="multi"  # Multilingual support
+)
+```
+
+#### AssemblyAI
+```python
+from livekit.agents.integrations import assemblyai
+
+stt = assemblyai.STT()
+```
+
+#### Azure AI Speech
+```python
+from livekit.agents.integrations import azure_ai_speech
+
+stt = azure_ai_speech.STT(
+    speech_key="your-key",
+    speech_region="your-region"
+)
+```
+
+### TTS Providers
+
+#### Cartesia (Low Latency)
+```python
+from livekit.agents.integrations import cartesia
+
+tts = cartesia.TTS(
+    model="sonic-english",
+    voice="79a125e8-cd45-4c13-8a67-188112f4dd22"
+)
+```
+
+#### ElevenLabs (High Quality)
+```python
+from livekit.agents.integrations import elevenlabs
+
+tts = elevenlabs.TTS(
+    model="eleven_turbo_v2_5",
+    voice="rachel"
+)
+```
+
+#### Azure AI Speech
+```python
+from livekit.agents.integrations import azure_ai_speech
+
+tts = azure_ai_speech.TTS(
+    speech_key="your-key",
+    speech_region="your-region",
+    voice="en-US-JennyNeural"
+)
+```
+
+## Advanced Pipeline Configurations
+
+### OpenAI Realtime API Complete Pipeline
+Replace traditional STT-LLM-TTS with single provider:
+```python
+async def entrypoint(ctx: JobContext):
+    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
+    
+    session = AgentSession(
+        llm=openai.realtime.RealtimeModel(
+            model="gpt-4o-realtime-preview",
+            voice="alloy",
+            temperature=0.8,
+            instructions="Your agent instructions here"
+        )
+    )
+    
+    session.start(Assistant())
+```
+
+### Multimodal Vision Support
+For agents that process visual input:
+```python
+# Configure for multimodal input
+session = AgentSession(
+    llm=openai.LLM(
+        model="gpt-4o",  # Vision-capable model
+        temperature=0.7
+    ),
+    # ... other components
+)
+
+# In your agent tools
+@function_tool
+async def analyze_image(self, context: RunContext, description: str):
+    """Analyze images shared in the conversation.
+    
+    Args:
+        description: Description of what to look for in the image
+    """
+    # Access video frames or images from context
+    # Implement image analysis logic
+    return "Analysis result"
+```
+
+### Turn Detection Options
+
+#### LiveKit Turn Detector (Recommended)
+```python
+from livekit.agents import turn_detector as detect
+
+# English optimized (smaller, faster)
+turn_detector = detect.EnglishModel()
+
+# Multilingual support (larger, more languages)
+turn_detector = detect.MultilingualModel()
+```
+
+#### VAD-only Detection
+```python
+from livekit.agents.integrations import silero
+
+vad = silero.VAD(
+    min_speech_duration=0.1,
+    min_silence_duration=0.5
+)
+```
+
+## Environment Variables by Provider
+
+### OpenAI
+```bash
+OPENAI_API_KEY=sk-...
+OPENAI_ORG_ID=org-...  # Optional
+```
+
+### Anthropic
+```bash
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+### Google
+```bash
+GOOGLE_API_KEY=AIza...
+# OR for service account
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json
+```
+
+### Azure
+```bash
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_SPEECH_KEY=...
+AZURE_SPEECH_REGION=...
+```
+
+### Other Providers
+```bash
+DEEPGRAM_API_KEY=...
+CARTESIA_API_KEY=...
+ASSEMBLYAI_API_KEY=...
+ELEVENLABS_API_KEY=...
+```
+
+## Performance Considerations
+
+### Latency Optimization
+- **Ultra-low latency**: OpenAI Realtime API
+- **Low latency**: Cartesia TTS + Deepgram STT
+- **Balanced**: Standard pipeline with optimized models
+- **High quality**: ElevenLabs TTS with larger models
+
+### Cost Optimization
+- **Budget**: Use smaller models (gpt-4o-mini, claude-haiku)
+- **Balanced**: Mix providers based on capability needs
+- **Premium**: Larger models for complex reasoning tasks
+
+### Model Selection Guidelines
+- **Reasoning**: GPT-4o, Claude-3.5-Sonnet
+- **Speed**: GPT-4o-mini, Claude-3-Haiku, Gemini Flash
+- **Multimodal**: GPT-4o, Claude-3.5-Sonnet
+- **Code**: GPT-4o, Claude-3.5-Sonnet
+- **Conversations**: All models suitable
+
+## Integration Examples
+
+### Hybrid Provider Setup
+Use different providers for different capabilities:
+```python
+session = AgentSession(
+    stt=deepgram.STT(model="nova-3"),      # Best STT
+    llm=anthropic.LLM(model="claude-3-haiku"),  # Fast LLM
+    tts=cartesia.TTS(model="sonic-english"),    # Low-latency TTS
+    turn_detector=detect.MultilingualModel(),   # Best turn detection
+    vad=silero.VAD()
+)
+```
+
+### Provider Fallbacks
+Implement graceful fallbacks between providers:
+```python
+try:
+    llm = openai.LLM(model="gpt-4o-mini")
+except Exception:
+    logger.warning("OpenAI unavailable, falling back to Anthropic")
+    llm = anthropic.LLM(model="claude-3-haiku")
+```
+
+## Documentation Links
+- **All Integrations**: https://docs.livekit.io/agents/integrations/
+- **LLM Providers**: https://docs.livekit.io/agents/integrations/llm/
+- **STT Providers**: https://docs.livekit.io/agents/integrations/stt/
+- **TTS Providers**: https://docs.livekit.io/agents/integrations/tts/
+- **OpenAI Realtime**: https://docs.livekit.io/agents/integrations/realtime/openai
