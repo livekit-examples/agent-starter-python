@@ -1,0 +1,147 @@
+---
+globs: "*.toml,*.env,*.env.example,Dockerfile,.dockerignore,*.yaml,*.yml"
+description: "LiveKit Agent deployment and configuration guidance"
+---
+
+# Deployment & Configuration Guide
+
+Configuration patterns for deploying LiveKit agents using [pyproject.toml](mdc:pyproject.toml), [Dockerfile](mdc:Dockerfile), and [livekit.toml](mdc:livekit.toml).
+
+## Environment Configuration
+
+### Required Environment Variables
+Essential API keys and configuration:
+- `LIVEKIT_URL` - LiveKit server URL
+- `LIVEKIT_API_KEY` - LiveKit API key
+- `LIVEKIT_API_SECRET` - LiveKit API secret
+- `OPENAI_API_KEY` - OpenAI API key
+- `DEEPGRAM_API_KEY` - Deepgram STT API key
+- `CARTESIA_API_KEY` - Cartesia TTS API key
+
+### Environment Setup Commands
+- `lk app env -w .env` - Auto-load LiveKit environment using CLI
+- Copy `.env.example` to `.env` and configure values
+- Use `python-dotenv` for loading environment variables in code
+
+## Dependency Management with uv
+
+### Core Dependencies in pyproject.toml
+```toml
+[project]
+dependencies = [
+    "livekit-agents",
+    "livekit-agents-integrations[openai,deepgram,cartesia,silero]",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio",
+    "ruff",
+]
+```
+
+### Installation Commands
+- `uv sync` - Install production dependencies
+- `uv sync --dev` - Install with development tools
+- `uv lock` - Update dependency lock file
+- `uv add package-name` - Add new dependency
+
+## Docker Deployment
+
+### Dockerfile Best Practices
+Based on included [Dockerfile](mdc:Dockerfile):
+- Use Python slim base image for smaller size
+- Install uv for fast dependency management
+- Copy requirements and install before copying source code
+- Use non-root user for security
+- Set proper environment variables
+- Handle model downloads in initialization
+
+### Docker Commands
+- `docker build -t agent .` - Build image
+- `docker run --env-file .env agent` - Run with environment
+- `docker run -d --restart unless-stopped agent` - Run as daemon
+
+## LiveKit Cloud Configuration
+
+### livekit.toml Structure
+```toml
+[project]
+name = "agent-starter-python"
+agent_dir = "src"
+watch_paths = ["src"]
+
+[env_vars]
+OPENAI_API_KEY = "$OPENAI_API_KEY"
+DEEPGRAM_API_KEY = "$DEEPGRAM_API_KEY"
+CARTESIA_API_KEY = "$CARTESIA_API_KEY"
+```
+
+### Cloud Deployment Commands
+- `lk deploy` - Deploy to LiveKit Cloud
+- `lk logs` - View deployment logs
+- `lk status` - Check deployment status
+
+## CI/CD Integration
+
+### GitHub Actions Workflows
+Common workflows to include:
+- **Linting**: `ruff check` and `ruff format --check`
+- **Testing**: `pytest` with evaluation tests
+- **Docker Build**: Build and push container images
+- **Deployment**: Auto-deploy on main branch
+
+### Pre-commit Hooks
+Recommended hooks for code quality:
+```yaml
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    hooks:
+      - id: ruff
+      - id: ruff-format
+```
+
+## Production Considerations
+
+### Performance Optimization
+- Pre-download models before deployment
+- Use appropriate model sizes for latency requirements
+- Configure turn detection thresholds
+- Monitor resource usage and scaling
+
+### Security Best Practices
+- Never commit API keys to version control
+- Use environment variables for all secrets
+- Run containers as non-root users
+- Implement proper error handling and logging
+- Use HTTPS/WSS for all connections
+
+### Monitoring & Logging
+- Enable metrics collection in agent code
+- Set up log aggregation for production
+- Monitor usage and costs across providers
+- Implement health checks and alerting
+
+### Scaling Considerations
+- Design agents to be stateless where possible
+- Use proper resource limits in containers
+- Implement connection pooling for external services
+- Consider load balancing for multiple instances
+
+## File Management
+
+### Files to Track in Version Control
+- `uv.lock` - For reproducible builds
+- `livekit.toml` - If using LiveKit Cloud
+- `.env.example` - Template for environment variables
+- `Dockerfile` and `.dockerignore`
+- CI/CD workflow files
+
+### Files to Ignore
+- `.env` - Contains secrets
+- `*.log` - Log files
+- Model download caches
+- Virtual environment directories
+- IDE-specific files
