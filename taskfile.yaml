@@ -2,21 +2,22 @@ version: "3"
 output: interleaved
 dotenv: [".env.local"]
 
+includes:
+  index: https://raw.githubusercontent.com/livekit-examples/index/main/taskfile.yaml
+
 tasks:
   post_create:
     desc: "Runs after this template is instantiated as a Sandbox or Bootstrap"
     cmds:
-      - echo -e "To try the new agent directly in your terminal:\r\n"
-      - echo -e "\tcd {{.ROOT_DIR}}\r"
-      - echo -e "\tuv sync\r"
-      - echo -e "\tuv run src/agent.py download-files\r"
-      - echo -e "\tuv run src/agent.py console\r\n"
+      - task: index:help_setup_python_uv
+      - task: index:help_deploy_agent
 
   install:
     desc: "Bootstrap application for local development"
     cmds:
-      - "uv sync"
+      - task: index:install_python_uv
+
   dev:
     interactive: true
     cmds:
-      - "uv run src/agent.py dev"
+      - task: index:dev_python_uv
