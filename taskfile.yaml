@@ -1,16 +1,52 @@
 version: "3"
 output: interleaved
 dotenv: [".env.local"]
+vars:
+  INDENT: 4
+  REL_PATH: "{{ relPath .USER_WORKING_DIR .ROOT_DIR }}"
+  VENV_DIR: ".venv"
+  PYTHON_MAIN: '{{ joinPath "./src" "agent.py" }}'
 
 tasks:
   post_create:
     desc: "Runs after this template is instantiated as a Sandbox or Bootstrap"
     cmds:
-      - echo -e "To try the new agent directly in your terminal:\r\n"
-      - echo -e "\tcd {{.ROOT_DIR}}\r"
-      - echo -e "\tuv sync\r"
-      - echo -e "\tuv run src/agent.py download-files\r"
-      - echo -e "\tuv run src/agent.py console\r\n"
+      - echo 'To try the new agent directly in your terminal:'
+      - echo ''
+      - echo '{{ indent .INDENT "cd" }} {{ .REL_PATH }}'
+      - echo '{{ indent .INDENT "uv sync" }}'
+      - echo '{{ indent .INDENT "uv run" }} {{ .PYTHON_MAIN }} download-files'
+      - echo '{{ indent .INDENT "uv run" }} {{ .PYTHON_MAIN }} console'
+      - echo ''
+      - echo 'To deploy your agent to LiveKit cloud:'
+      - echo ''
+      - echo '{{ indent .INDENT "lk agent create" }}'
+      - echo ''
+      - task: set_agent_name_if_present
+      - task: help_open_sandbox_if_present
+
+  set_agent_name_if_present:
+    status:
+      - test -z "$LIVEKIT_AGENT_NAME"
+    cmds:
+      - |
+        old="WorkerOptions("
+        new="WorkerOptions(agent_name=\"{{ .LIVEKIT_AGENT_NAME }}\", "
+        file="{{ .PYTHON_MAIN }}"
+        tmp="$(mktemp)"
+        while IFS= read -r line; do
+          printf '%s\n' "${line//$old/$new}" >> "$tmp"
+        done < "$file"
+        mv "$tmp" "$file"
+
+  help_open_sandbox_if_present:
+    status:
+      - test -z "$LIVEKIT_SANDBOX_ID"
+    cmds:
+      - echo 'To chat with your running agent, visit:'
+      - echo ''
+      - echo '{{ indent .INDENT "https://" }}{{ .LIVEKIT_SANDBOX_ID }}.sandbox.livekit.io'
+      - echo ''
 
   install:
     desc: "Bootstrap application for local development"
