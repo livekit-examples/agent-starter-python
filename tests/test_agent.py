@@ -5,7 +5,7 @@ from agent import Assistant
 
 
 def _llm() -> llm.LLM:
-    return inference.LLM(model="azure/gpt-4o-mini")
+    return inference.LLM(model="openai/gpt-4.1-mini")
 
 
 @pytest.mark.asyncio
