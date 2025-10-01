@@ -1,0 +1,74 @@
+---
+alwaysApply: true
+description: "Core LiveKit Agent development guidance and patterns"
+---
+
+# LiveKit Agent Development Guide
+
+This is a LiveKit Agent starter template. Use these patterns and commands for development.
+
+## Essential Commands
+
+### Setup & Environment
+- `uv sync` - Install dependencies to virtual environment
+- `uv sync --dev` - Install dev tools (pytest, ruff)
+- Copy `.env.example` to `.env` and configure API keys
+- `lk app env -w .env` - Auto-load LiveKit environment using CLI
+
+### Running the Agent
+- `uv run python src/agent.py download-files` - Download models before first run
+- `uv run python src/agent.py console` - Terminal interaction mode
+- `uv run python src/agent.py dev` - Development mode for frontend/telephony
+- `uv run python src/agent.py start` - Production mode
+
+### Code Quality
+- `uv run ruff check .` - Run linter
+- `uv run ruff format .` - Format code
+- `uv run pytest` - Run tests
+
+## Architecture Patterns
+
+### Core Components
+LiveKit agents follow this structure:
+- **Agent Class** - Inherits from `Agent`, contains instructions and function tools
+- **Entrypoint Function** - Sets up the voice AI pipeline (STT/LLM/TTS)
+- **Function Tools** - Extend agent capabilities beyond conversation
+
+### Voice AI Pipeline
+- **STT**: Deepgram Nova-3 (multilingual)
+- **LLM**: OpenAI GPT-4o-mini (easily swappable)
+- **TTS**: Cartesia for voice synthesis
+- **Turn Detection**: LiveKit's multilingual turn detection
+- **VAD**: Silero VAD for voice activity detection
+
+## Key Development Patterns
+
+### Extending Agent Capabilities
+Function tools enable agents to perform actions beyond conversation:
+```python
+@function_tool
+async def external_integration(self, context: RunContext, param: str):
+    """Tools extend agent capabilities with external integrations.
+    
+    Args:
+        param: Clear parameter description for LLM understanding
+    """
+    # Integration logic (APIs, databases, computations, etc.)
+    return "result"
+```
+
+### Modular AI Pipeline
+LiveKit's provider abstraction enables flexible AI component selection:
+- **Language Models**: OpenAI, Anthropic, Google, Azure, local models
+- **Speech Recognition**: Deepgram, AssemblyAI, Azure, Google, OpenAI
+- **Voice Synthesis**: Cartesia, ElevenLabs, Azure, Polly, OpenAI
+
+### Environment Variables Required
+- `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
+- Provider keys: `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, `CARTESIA_API_KEY`
+- These are just for the default providers - new providers may require new keys.
+
+## Resources
+- **Documentation**: https://docs.livekit.io/agents/ (append `.md` for markdown format, or fetc `/llms.txt` at the root for a full index)
+- **Extensive collection of practical examples**: https://github.com/livekit-examples/python-agents-examples
+- **Frontend Starters**: [React](https://github.com/livekit-examples/agent-starter-react), [Swift](https://github.com/livekit-examples/agent-starter-swift), [Android](https://github.com/livekit-examples/ agent-starter-android), [Flutter](https://github.com/livekit-examples/agent-starter-flutter), [React Native](https://github.com/livekit-examples/agent-starter-react-native), and [Web Embed](https://github.com/livekit-examples/agent-starter-embed) templates available
