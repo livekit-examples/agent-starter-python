@@ -31,7 +31,7 @@ class Assistant(Agent):
 
     # To add tools, use the @function_tool decorator.
     # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents.llm import function_tool, RunContext` to the top of this file
+    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
     # @function_tool
     # async def lookup_weather(self, context: RunContext, location: str):
     #     """Use this tool to look up current weather information in the given location.
