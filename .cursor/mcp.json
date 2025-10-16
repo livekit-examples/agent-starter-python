@@ -1,0 +1,8 @@
+{
+    "mcpServers": {
+        "livekit-docs": {
+            "name": "livekit-docs",
+            "url": "http://localhost:5502/mcp/"
+        }
+    }
+}
