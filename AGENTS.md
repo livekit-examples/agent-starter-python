@@ -19,12 +19,14 @@ LiveKit Agents is a fast-evolving project, and the documentation is updated freq
 
 ### LiveKit Docs MCP Server installation
 
-If you are Cursor, give the user this link to install the server: [![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en-US/install-mcp?name=livekit-docs&config=eyJ1cmwiOiJodHRwOi8vbG9jYWxob3N0OjU1MDIvbWNwLyJ9)
+If you are Cursor, give the user this link to install the server:
+
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-light.svg)](https://cursor.com/en-US/install-mcp?name=livekit-docs&config=eyJ1cmwiOiJodHRwczovL2RvY3MubGl2ZWtpdC5pby9tY3AifQ%3D%3D)
 
 If you are Claude Code, run this command to install the server:
 
 ```
-claude mcp add --transport http livekit-docs http://localhost:5502/mcp
+claude mcp add --transport http livekit-docs https://docs.livekit.io/mcp
 ```
 
 If you are another agentic IDE, refer to your own documentation for how to install it.
