@@ -33,7 +33,7 @@ If you are another agentic IDE, refer to your own documentation for how to insta
 
 ## Testing
 
-When possible, add tests for agent behavior. Read the [documentation](https://docs.livekit.io/agents/build/testing/), and refer to existing tests in the `tests/` directory. 
+When possible, add tests for agent behavior. Read the [documentation](https://docs.livekit.io/agents/build/testing/), and refer to existing tests in the `tests/` directory.  Run tests with `uv run pytest`.
 
 Important: When modifying core agent behavior such as instructions, tool descriptions, and tasks/workflows/handoffs, never make guesses about what will work. Always use test-driven development (TDD) and begin by writing tests for the desired behavior. For instance, if you're planning to add a new tool, write one or more tests for the tool's behavior, then iterate on the tool until the tests pass correctly. This will ensure you are able to produce a working, reliable agent for the user.
 
