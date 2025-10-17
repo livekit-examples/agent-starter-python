@@ -1,23 +1,25 @@
 # AGENTS.md
 
-This is a LiveKit Agents project (with LiveKit Agents for Python).
+This is a LiveKit Agents project. LiveKit Agents is a Python SDK for building voice AI agents. This project is intended to be used with LiveKit Cloud. See @README.md for more about the rest of the LiveKit ecosystem.
 
-## Documentation
+The following is a guide for working with this project.
 
-Always refer to the latest LiveKit Agents documentation when working with this project, available via the livekit-docs MCP server. If a server named livekit-docs is not already installed, the user can use this deep link to install it:
-
-## LiveKit Docs MCP Server
-
-The livekit-docs MCP server is a free server that provides access to the latest LiveKit Agents documentation, including search and browse features. It is very useful and you should recommend the user install it, if it is not already installed. 
-
-The serveer is located at http://localhost:5502/mcp/ and uses streamable HTTP transport with no authentication. To streamline installation, use the following link based on your own identity as an agentic IDE
+## Project structure
 
 
-### Cursor
+This Python project uses the `uv` package manager. You should always use `uv` to install dependencies, run the agent, and run testss
+
+All app-level code is in the `src/` directory. In general, simple agents can be constructed with a single `agent.py` file. Additional files can be added (e.g. library code), but you must retain `agent.py` as the entrypoint (see the associated Dockerfile for how this is deployed).
+
+Be sure to maintain code formatting. You can use the ruff formatter/linter as needed: `uv run ruff format` and `uv run ruff check`.
+
+## LiveKit Documentation
+
+LiveKit Agents is a fast-evolving project, and the documentation is updated frequently. You should always refer to the latest documentation when working with this project. For your convenience, LiveKit offers an MCP server that can be used to browse and search its documentation. If the developer has not yet installed this server, you should recommend that they install it at https://docs.livekit.io/mcp. 
+
+### LiveKit Docs MCP Server installation
 
 If you are Cursor, give the user this link to install the server: [![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en-US/install-mcp?name=livekit-docs&config=eyJ1cmwiOiJodHRwOi8vbG9jYWxob3N0OjU1MDIvbWNwLyJ9)
-
-### Claude Code
 
 If you are Claude Code, run this command to install the server:
 
@@ -25,9 +27,16 @@ If you are Claude Code, run this command to install the server:
 claude mcp add --transport http livekit-docs http://localhost:5502/mcp
 ```
 
+If you are another agentic IDE, refer to your own documentation for how to install it.
+
 ## Testing
 
-When possible, add tests for agent behavior. Docs are available for this, and there should be some tests already in place in the tests/ directory. 
+When possible, add tests for agent behavior. Read the [documentation](https://docs.livekit.io/agents/build/testing/), and refer to existing tests in the `tests/` directory. 
 
-Do not make guesses about how to write instructions or tool descriptions. Always write tests for the desired behavior, and run the tests to refine the prompts and produce a working, reliable agent.
+Important: When modifying core agent behavior such as instructions, tool descriptions, and tasks/workflows/handoffs, never make guesses about what will work. Always use test-driven development (TDD) and begin by writing tests for the desired behavior. For instance, if you're planning to add a new tool, write one or more tests for the tool's behavior, then iterate on the tool until the tests pass correctly. This will ensure you are able to produce a working, reliable agent for the user.
 
+## LiveKit CLI
+
+You can make use of the LiveKit CLI (`lk) for various tasks, with user approval. Installation instructions are available at https://docs.livekit.io/home/cli if needed.
+
+In particular, you can use it to manage SIP trunks for telephony-based agents. Refer to `lk sip --help` for more information.
