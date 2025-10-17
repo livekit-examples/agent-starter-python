@@ -28,6 +28,17 @@ If you are Claude Code, run this command to install the server:
 claude mcp add --transport http livekit-docs https://docs.livekit.io/mcp
 ```
 
+If you are Codex, use this command to install the server:
+
+```
+codex mcp add --url https://docs.livekit.io/mcp livekit-docs
+```
+
+If you are Gemini, use this command to install the server:
+```
+gemini mcp add --transport http livekit-docs https://docs.livekit.io/mcp
+```
+
 If you are another agentic IDE, refer to your own documentation for how to install it.
 
 ## Handoffs and tasks ("workflows")
