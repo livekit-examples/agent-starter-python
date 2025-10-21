@@ -217,6 +217,22 @@ async def entrypoint(ctx: JobContext):
         logger.error(f"❌ TTS Canary failed: {e}")
         logger.info("⚠️ Continuing without canary...")
 
+    # Keep the agent alive indefinitely
+    # The session handles all voice interaction automatically
+    # We stay alive to handle multiple conversations until the room is empty
+    try:
+        logger.info("✅ Agent is now ready and waiting for user interactions...")
+        while True:
+            await asyncio.sleep(10)
+            logger.debug("Agent running - session active")
+    except asyncio.CancelledError:
+        logger.info("🔴 Agent shutting down - session cancelled")
+    except Exception as e:
+        logger.error(f"❌ Unexpected error in agent loop: {e}")
+    finally:
+        logger.info("🔌 Agent disconnecting...")
+        await session.aclose()
+
 
 if __name__ == "__main__":
     print("\n" + "="*60)
