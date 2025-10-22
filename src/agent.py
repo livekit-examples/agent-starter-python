@@ -16,7 +16,7 @@ from livekit.agents import (
     cli,
     metrics,
 )
-from livekit.plugins import noise_cancellation, silero
+from livekit.plugins import noise_cancellation, silero, cartesia
 
 try:
     from livekit.plugins import openai as openai_plugin
@@ -117,18 +117,27 @@ async def entrypoint(ctx: JobContext):
     # Set up a voice AI pipeline with OpenAI LLM and system prompt
     system_prompt = load_system_prompt()
 
-    # Configure TTS - OpenAI is required
-    if not OPENAI_PLUGIN_AVAILABLE:
-        logger.error("❌ OpenAI plugin not available. Please install: pip install livekit-agents[openai]")
-        return
-
+    # Configure TTS - Cartesia with fallback logic
     try:
-        tts_option = openai_plugin.TTS(model="tts-1", voice="alloy")
-        logger.info(f"🔊 Using TTS: OpenAI tts-1 (alloy voice)")
-    except Exception as e:
-        logger.error(f"❌ OpenAI TTS failed to initialize: {e}")
-        logger.error("Please check your OpenAI API key and plugin installation")
-        return
+        # Try primary Cartesia voice (conversational female)
+        tts_option = cartesia.TTS(
+            voice="79a125e8-cd45-4c13-8a67-188112f4dd22",
+            model="sonic-english"
+        )
+        logger.info(f"🔊 Using TTS: Cartesia Sonic (conversational female voice)")
+    except Exception as cartesia_error:
+        logger.warning(f"⚠️ Primary Cartesia voice failed: {cartesia_error}")
+        try:
+            # Fallback to alternative Cartesia voice
+            tts_option = cartesia.TTS(
+                voice="a0e99841-438c-4a64-b679-ae501e7d6091",
+                model="sonic-english"
+            )
+            logger.info(f"🔊 Using TTS: Cartesia Sonic (friendly woman - fallback voice)")
+        except Exception as e:
+            logger.error(f"❌ All Cartesia voices failed: {e}")
+            logger.error("Please check your CARTESIA_API_KEY and plugin installation")
+            return
 
     session = AgentSession(
         # Speech-to-text (STT) - convert user speech to text
@@ -207,7 +216,7 @@ async def entrypoint(ctx: JobContext):
     # Canary: Publish a test message to verify TTS is working
     logger.info("🔊 TTS Canary: Starting test message...")
     try:
-        canary_text = "Hi, this is Coach Ava. I am connected and ready to roleplay. Let's begin!"
+        canary_text = "Hello!"
         logger.info(f"🔊 Publishing canary: {canary_text}")
 
         # Publish the canary audio to the room using session.say()
