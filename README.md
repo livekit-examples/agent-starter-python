@@ -45,7 +45,7 @@ For Gemini CLI, use this command to install the server:
 gemini mcp add --transport http livekit-docs https://docs.livekit.io/mcp
 ```
 
-The project includes a complete [AGENTS.md](AGENTS.md) file for these assistants. You can modify this file to suite your needs. To learn more about this file, see [https://agents.md](https://agents.md).
+The project includes a complete [AGENTS.md](AGENTS.md) file for these assistants. You can modify this file  your needs. To learn more about this file, see [https://agents.md](https://agents.md).
 
 ## Dev Setup
 
