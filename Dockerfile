@@ -45,7 +45,7 @@ RUN mkdir -p src
 # Ensure your uv.lock file is checked in for consistency across environments
 RUN uv sync --locked
 
-# Copy all remaining pplication files into the container
+# Copy all remaining application files into the container
 # This includes source code, configuration files, and dependency specifications
 # (Excludes files specified in .dockerignore)
 COPY . .
