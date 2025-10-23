@@ -19,6 +19,34 @@ The starter project includes:
 
 This starter app is compatible with any [custom web/mobile frontend](https://docs.livekit.io/agents/start/frontend/) or [SIP-based telephony](https://docs.livekit.io/agents/start/telephony/).
 
+## Coding agents and MCP
+
+This project is designed to work with coding agents like [Cursor](https://www.cursor.com/) and [Claude Code](https://www.anthropic.com/claude-code). 
+
+To get the most out of these tools, install the [LiveKit Docs MCP server](https://docs.livekit.io/mcp).
+
+For Cursor, use this link:
+
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-light.svg)](https://cursor.com/en-US/install-mcp?name=livekit-docs&config=eyJ1cmwiOiJodHRwczovL2RvY3MubGl2ZWtpdC5pby9tY3AifQ%3D%3D)
+
+For Claude Code, run this command:
+
+```
+claude mcp add --transport http livekit-docs https://docs.livekit.io/mcp
+```
+
+For Codex CLI, use this command to install the server:
+```
+codex mcp add --url https://docs.livekit.io/mcp livekit-docs
+```
+
+For Gemini CLI, use this command to install the server:
+```
+gemini mcp add --transport http livekit-docs https://docs.livekit.io/mcp
+```
+
+The project includes a complete [AGENTS.md](AGENTS.md) file for these assistants. You can modify this file  your needs. To learn more about this file, see [https://agents.md](https://agents.md).
+
 ## Dev Setup
 
 Clone the repository and install dependencies to a virtual environment:
