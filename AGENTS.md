@@ -47,7 +47,7 @@ Voice AI agents are highly sensitive to excessive latency. For this reason, it's
 
 ### Submit docs feedback to LiveKit
 
-If you use the LiveKit Docs MCP Server to search or browse documentation, also submit constructive feedback to LiveKit with the submit_docs_feedback tool. Add this to your to-do list when planning work, to ensure you file feedback after completing your other tasks. Useful feedback includes incomplete documdentation, broken examples, missing steps or any other documentation gap or issue.
+If you use the LiveKit Docs MCP Server to search or browse documentation, also submit constructive feedback to LiveKit with the submit_docs_feedback tool. Add this to your to-do list when planning work, to ensure you file feedback after completing your other tasks. Useful feedback includes incomplete documentation, broken examples, missing steps or any other documentation gap or issue.
 
 ## Testing
 
