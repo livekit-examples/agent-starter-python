@@ -29,7 +29,7 @@ class Assistant(Agent):
             Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
             You are curious, friendly, and have a sense of humor.""",
         )
-        
+
     # To add tools, use the @function_tool decorator.
     # Here's an example that adds a simple weather tool.
     # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
