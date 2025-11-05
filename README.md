@@ -119,6 +119,16 @@ This project includes a complete suite of evals, based on the LiveKit Agents [te
 uv run pytest
 ```
 
+### Running tests with proxy settings
+
+For debugging or testing purposes, you can route traffic through a proxy (e.g., mitmproxy on localhost:9090):
+
+```console
+source .env && HTTPS_PROXY=localhost:9090 HTTP_PROXY=localhost:9090 uv run pytest
+```
+
+This is useful for inspecting WebSocket traffic, debugging network issues, or testing against a local proxy server.
+
 ## Using this template repo for your own project
 
 Once you've started your own project based on this repo, you should:
