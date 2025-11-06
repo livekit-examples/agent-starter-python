@@ -3,6 +3,7 @@ import logging
 from dotenv import load_dotenv
 from livekit.agents import (
     Agent,
+    AgentServer,
     AgentSession,
     JobContext,
     JobProcess,
@@ -48,11 +49,16 @@ class Assistant(Agent):
     #     return "sunny with a temperature of 70 degrees."
 
 
+server = AgentServer()
+
+
+@server.setup()
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load()
 
 
-async def entrypoint(ctx: JobContext):
+@server.rtc_session()
+async def my_agent(ctx: JobContext):
     # Logging setup
     # Add any other context you want in all log entries here
     ctx.log_context_fields = {
@@ -129,4 +135,4 @@ async def entrypoint(ctx: JobContext):
 
 
 if __name__ == "__main__":
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
+    cli.run_app(server)
