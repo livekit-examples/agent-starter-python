@@ -4,14 +4,12 @@ from dotenv import load_dotenv
 from livekit.agents import (
     Agent,
     AgentSession,
+    AgentServer,
     JobContext,
     JobProcess,
-    MetricsCollectedEvent,
     RoomInputOptions,
-    WorkerOptions,
     cli,
     inference,
-    metrics,
 )
 from livekit.plugins import noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
@@ -48,10 +46,13 @@ class Assistant(Agent):
     #     return "sunny with a temperature of 70 degrees."
 
 
+server = AgentServer()
+    
+@server.setup()
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load()
 
-
+@server.rtc_session()
 async def entrypoint(ctx: JobContext):
     # Logging setup
     # Add any other context you want in all log entries here
@@ -91,21 +92,6 @@ async def entrypoint(ctx: JobContext):
     #     llm=openai.realtime.RealtimeModel(voice="marin")
     # )
 
-    # Metrics collection, to measure pipeline performance
-    # For more information, see https://docs.livekit.io/agents/build/metrics/
-    usage_collector = metrics.UsageCollector()
-
-    @session.on("metrics_collected")
-    def _on_metrics_collected(ev: MetricsCollectedEvent):
-        metrics.log_metrics(ev.metrics)
-        usage_collector.collect(ev.metrics)
-
-    async def log_usage():
-        summary = usage_collector.get_summary()
-        logger.info(f"Usage: {summary}")
-
-    ctx.add_shutdown_callback(log_usage)
-
     # # Add a virtual avatar to the session, if desired
     # # For other providers, see https://docs.livekit.io/agents/models/avatar/
     # avatar = hedra.AvatarSession(
@@ -124,9 +110,6 @@ async def entrypoint(ctx: JobContext):
         ),
     )
 
-    # Join the room and connect to the user
-    await ctx.connect()
-
 
 if __name__ == "__main__":
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, prewarm_fnc=prewarm))
+    cli.run_app(server)
