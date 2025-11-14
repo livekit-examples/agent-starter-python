@@ -208,7 +208,7 @@ Follow your guidelines and policies. Do not use any formatting or quotation mark
         output_path.mkdir(exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        base_name = f"{self.scenario['name']}_{timestamp}"
+        base_name = f"{timestamp}_{self.scenario['name']}"
 
         # Save transcript
         transcript_file = output_path / f"{base_name}_transcript.json"
@@ -240,39 +240,11 @@ Follow your guidelines and policies. Do not use any formatting or quotation mark
         }
 
 
-# Predefined scenarios (simplified version)
-SCENARIOS = {
-    "angry_refund": {
-        "name": "angry_refund",
-        "customer_name": "Karen Smith",
-        "issue": "My product arrived completely broken and I want my money back immediately",
-        "goal": "Get a full refund",
-        "personality": "Aggressive, impatient, easily frustrated",
-        "emotional_state": "Very angry",
-        "difficulty": "very difficult",
-        "special_behavior": "Interrupt if the agent takes too long. Demand to speak to a manager."
-    },
-    "friendly_billing": {
-        "name": "friendly_billing",
-        "customer_name": "Sarah Williams",
-        "issue": "I noticed I was charged twice for my subscription this month",
-        "goal": "Get the duplicate charge refunded",
-        "personality": "Friendly, understanding, patient",
-        "emotional_state": "Calm",
-        "difficulty": "easy",
-        "special_behavior": "Be cooperative and thank the agent for their help."
-    },
-    "confused_elderly": {
-        "name": "confused_elderly",
-        "customer_name": "Harold Johnson",
-        "issue": "I can't remember my password and the website isn't working",
-        "goal": "Reset password and access account",
-        "personality": "Confused but polite, needs repetition",
-        "emotional_state": "Anxious but friendly",
-        "difficulty": "moderate",
-        "special_behavior": "Ask for things to be repeated. Get confused by technical terms."
-    }
-}
+# Import scenarios from customer_agent
+from customer_agent import SCENARIO_TEMPLATES
+
+# Use the Jodo payment collection scenarios
+SCENARIOS = SCENARIO_TEMPLATES
 
 # Default support prompt
 DEFAULT_SUPPORT_PROMPT = """You are a helpful customer support agent.
@@ -285,10 +257,13 @@ Follow these guidelines:
 - Escalate if necessary"""
 
 
-async def simulate_conversation(scenario_name: str = "friendly_billing"):
+async def simulate_conversation(scenario_name: str = "cooperative_parent"):
     """Main function to simulate a conversation"""
 
-    scenario = SCENARIOS.get(scenario_name, SCENARIOS["friendly_billing"])
+    scenario = SCENARIOS.get(scenario_name, SCENARIOS["cooperative_parent"])
+    # Add the scenario name to the scenario dict
+    scenario = scenario.copy()
+    scenario['name'] = scenario_name
 
     # Load support prompt
     prompt_file = Path("prompts/acme_system_prompt.txt")
@@ -321,7 +296,7 @@ async def simulate_conversation(scenario_name: str = "friendly_billing"):
 if __name__ == "__main__":
     import sys
 
-    scenario = sys.argv[1] if len(sys.argv) > 1 else "friendly_billing"
+    scenario = sys.argv[1] if len(sys.argv) > 1 else "cooperative_parent"
 
     if scenario not in SCENARIOS:
         print(f"Available scenarios: {', '.join(SCENARIOS.keys())}")

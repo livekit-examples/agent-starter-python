@@ -9,7 +9,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from conversation_simulator import simulate_conversation, SCENARIOS
+from src.conversation_simulator import simulate_conversation, SCENARIOS
 
 
 async def generate_all_conversations():
