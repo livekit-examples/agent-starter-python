@@ -6,6 +6,11 @@ import os
 import logging
 from typing import Optional, Dict, Any
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables - try both locations
+load_dotenv(".env.local")  # When run from project root
+load_dotenv("../.env.local")  # When run from src directory
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +85,14 @@ class SimpleVoiceGenerator:
                     "similarity_boost": 0.75
                 }
 
+                # Use speaker-specific parameters if available
                 if hasattr(self, 'custom_params'):
-                    voice_settings.update(self.custom_params)
+                    if speaker == "customer" and 'customer' in self.custom_params:
+                        voice_settings.update(self.custom_params['customer'])
+                    elif speaker == "support" and 'support' in self.custom_params:
+                        voice_settings.update(self.custom_params['support'])
+                    else:
+                        voice_settings.update(self.custom_params)
 
                 audio_response = self.client.text_to_speech.convert(
                     text=text,

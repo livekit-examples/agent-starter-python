@@ -15,10 +15,20 @@ import openai
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
-load_dotenv(".env.local")
+# Load environment variables - try both locations
+load_dotenv(".env.local")  # When run from project root
+load_dotenv("../.env.local")  # When run from src directory
 
 # Initialize OpenAI client
-client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    print("Error: OPENAI_API_KEY not found in environment variables.")
+    print("Make sure .env.local exists in the project root with your OpenAI API key.")
+    print("You can also set it directly: export OPENAI_API_KEY='your-key-here'")
+    import sys
+    sys.exit(1)
+
+client = AsyncOpenAI(api_key=api_key)
 
 OPEN_AI_MODEL = "gpt-5-mini-2025-08-07"
 MAX_TOKENS = 1000
@@ -207,9 +217,10 @@ Follow your guidelines and policies. Do not use any formatting or quotation mark
                 model = params.get('model', 'tts-1')
                 if speaker == "customer":
                     voice = params.get('voice_customer', 'echo')
+                    speed = params.get('speed_customer', 1.0)
                 else:
                     voice = params.get('voice_support', 'onyx')
-                speed = params.get('speed', 1.0)
+                    speed = params.get('speed_support', 1.0)
             else:
                 # Default settings
                 model = "tts-1"

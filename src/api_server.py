@@ -35,11 +35,25 @@ def index():
 @app.route('/api/scenarios')
 def get_scenarios():
     """Get available scenarios with descriptions"""
+
+    # Better scenario names for UI display
+    scenario_names = {
+        'cooperative_parent': '😊 Cooperative Parent - Easy Resolution',
+        'angry_insufficient_funds': '😤 Angry Parent - Financial Stress',
+        'wrong_person_family': '👩 Wrong Person - Wife Takes Message',
+        'confused_elderly_hindi': '👴 Confused Elderly - Hindi Speaker',
+        'financial_hardship': '😟 Financial Hardship - Needs Help',
+        'already_paid_confusion': '🤔 Payment Confusion - Claims Paid',
+        'payment_cancellation_attempt': '❌ Wants to Cancel - Needs Convincing',
+        'call_back_later': '⏰ Busy Professional - Call Later'
+    }
+
     scenarios_list = []
     for key, scenario in SCENARIOS.items():
         scenarios_list.append({
             'id': key,
-            'name': scenario.get('customer_name', 'Unknown'),
+            'display_name': scenario_names.get(key, key),
+            'customer_name': scenario.get('customer_name', 'Unknown'),
             'difficulty': scenario.get('difficulty', 'medium'),
             'emotional_state': scenario.get('emotional_state', 'neutral'),
             'description': scenario.get('issue', 'No description'),
@@ -59,18 +73,27 @@ def generate_conversation():
         tts_engine = data.get('tts_engine', 'auto')  # 'openai', 'elevenlabs', 'auto'
         max_turns = data.get('max_turns', 6)
 
-        # OpenAI parameters
+        # OpenAI parameters (separated by speaker)
         openai_model = data.get('openai_model', 'tts-1')
         openai_voice_support = data.get('openai_voice_support', 'onyx')
         openai_voice_customer = data.get('openai_voice_customer', 'echo')
-        openai_speed = data.get('openai_speed', 1.0)
+        openai_speed_support = data.get('openai_speed_support', 1.0)
+        openai_speed_customer = data.get('openai_speed_customer', 1.0)
 
-        # ElevenLabs parameters
-        elevenlabs_stability = data.get('elevenlabs_stability', 0.5)
-        elevenlabs_similarity = data.get('elevenlabs_similarity', 0.75)
-        elevenlabs_style = data.get('elevenlabs_style', 0.0)
-        elevenlabs_speaker_boost = data.get('elevenlabs_speaker_boost', False)
-        elevenlabs_speed = data.get('elevenlabs_speed', 1.0)
+        # ElevenLabs parameters (separated by speaker)
+        # Support agent settings
+        elevenlabs_stability_support = data.get('elevenlabs_stability_support', 0.55)
+        elevenlabs_similarity_support = data.get('elevenlabs_similarity_support', 0.75)
+        elevenlabs_style_support = data.get('elevenlabs_style_support', 0.15)
+        elevenlabs_speaker_boost_support = data.get('elevenlabs_speaker_boost_support', True)
+        elevenlabs_speed_support = data.get('elevenlabs_speed_support', 0.98)
+
+        # Customer settings
+        elevenlabs_stability_customer = data.get('elevenlabs_stability_customer', 0.5)
+        elevenlabs_similarity_customer = data.get('elevenlabs_similarity_customer', 0.75)
+        elevenlabs_style_customer = data.get('elevenlabs_style_customer', 0.2)
+        elevenlabs_speaker_boost_customer = data.get('elevenlabs_speaker_boost_customer', False)
+        elevenlabs_speed_customer = data.get('elevenlabs_speed_customer', 1.0)
 
         # Get scenario
         scenario = SCENARIOS.get(scenario_id, SCENARIOS['cooperative_parent'])
@@ -95,20 +118,30 @@ def generate_conversation():
         # Create custom simulator with parameters
         simulator = ConversationSimulator(scenario, support_prompt, use_elevenlabs=use_elevenlabs)
 
-        # Store custom parameters for the simulator to use
+        # Store custom parameters for the simulator to use (separated by speaker)
         simulator.custom_params = {
             'openai': {
                 'model': openai_model,
                 'voice_support': openai_voice_support,
                 'voice_customer': openai_voice_customer,
-                'speed': float(openai_speed)
+                'speed_support': float(openai_speed_support),
+                'speed_customer': float(openai_speed_customer)
             },
             'elevenlabs': {
-                'stability': float(elevenlabs_stability),
-                'similarity': float(elevenlabs_similarity),
-                'style': float(elevenlabs_style),
-                'speaker_boost': elevenlabs_speaker_boost,
-                'speed': float(elevenlabs_speed)
+                'support': {
+                    'stability': float(elevenlabs_stability_support),
+                    'similarity_boost': float(elevenlabs_similarity_support),
+                    'style': float(elevenlabs_style_support),
+                    'use_speaker_boost': elevenlabs_speaker_boost_support,
+                    'speed': float(elevenlabs_speed_support)
+                },
+                'customer': {
+                    'stability': float(elevenlabs_stability_customer),
+                    'similarity_boost': float(elevenlabs_similarity_customer),
+                    'style': float(elevenlabs_style_customer),
+                    'use_speaker_boost': elevenlabs_speaker_boost_customer,
+                    'speed': float(elevenlabs_speed_customer)
+                }
             }
         }
 
