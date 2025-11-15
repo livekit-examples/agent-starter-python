@@ -1,161 +1,100 @@
-# 🚀 Voice Agent Testing Framework - Quick Start
+# 🎙️ Quick Start - Voice Conversations
 
-## ✅ What We've Built
-
-A complete **voice agent testing framework** that simulates customer support conversations between:
-- **Synthetic customers** with different personalities (angry, confused, technical, etc.)
-- **Mock support agents** using your actual Acme prompts
-
-## 🎯 Key Features
-
-### 1. **5 Pre-Built Customer Personas**
-- Angry refund seeker (Karen)
-- Confused elderly user (Harold)
-- Technical bug reporter (Alex)
-- Friendly billing inquiry (Sarah)
-- Edge case nightmare (Jordan)
-
-### 2. **Rich Metrics Collection**
-- **Conversation quality**: Interruptions, silence gaps, gibberish detection
-- **Performance metrics**: Response times, speech rates, turn-taking
-- **Behavioral analysis**: Task completion, sentiment progression
-- **Audio quality**: STT confidence, overlapping speech
-
-### 3. **Comprehensive Reporting**
-- JSON transcripts with timestamps
-- HTML dashboards with visual metrics
-- Batch testing capabilities
-- Real-time metric streaming
-
-## 📦 What's Included
-
-```
-src/
-├── customer_agent.py      # 5 customer personas ready to use
-├── support_agent.py       # Mock Acme agent with your prompts
-├── conversation_orchestrator.py  # Connects agents in rooms
-├── metrics_collector.py   # Captures 20+ metrics per conversation
-├── test_runner.py         # Parallel test execution
-└── results_viewer.py      # HTML report generation
-
-prompts/
-└── acme_system_prompt.txt # 200+ line comprehensive support prompt
-
-run_test.py               # Main entry point with interactive menu
-TEST_FRAMEWORK.md         # Complete documentation
-```
-
-## 🏃 How to Use It
-
-### 1. Add Your Prompts
-Replace the content in `prompts/acme_system_prompt.txt` with your actual support agent instructions.
-
-### 2. Run Tests
+## Generate Your First Conversation (30 seconds)
 
 ```bash
-# Interactive mode (easiest)
-uv run python run_test.py
-
-# Test specific scenario
-uv run python run_test.py test angry_refund
-
-# Run all scenarios
-uv run python run_test.py test all
-
-# View results
-uv run python run_test.py results
-
-# Generate HTML report
-uv run python run_test.py report
+# Generate a voice conversation
+uv run python src/conversation_simulator.py cooperative_parent
 ```
 
-### 3. Analyze Results
+This creates:
+- **Audio file**: `conversations/YYYYMMDD_HHMMSS_cooperative_parent_conversation.mp3`
+- **Transcript**: `conversations/YYYYMMDD_HHMMSS_cooperative_parent_transcript.json`
 
-Each test generates:
-- Full conversation transcript with timestamps
-- Quality metrics (interruptions, latency, etc.)
-- Performance scores
-- HTML dashboard for visualization
+## Available Scenarios
 
-## 💡 Value Proposition
+| Command | Description | Difficulty |
+|---------|-------------|------------|
+| `cooperative_parent` | Yash agrees to reschedule payment | Easy |
+| `angry_insufficient_funds` | Frustrated parent with financial stress | Hard |
+| `wrong_person_family` | Wife (Priya) takes message for husband | Medium |
+| `confused_elderly_hindi` | Elderly Hindi-English speaker needs clarification | Medium |
+| `financial_hardship` | Parent facing genuine financial crisis | Medium |
+| `already_paid_confusion` | Claims payment was already made | Medium |
+| `payment_cancellation_attempt` | Tries to cancel but gets convinced | Hard |
+| `call_back_later` | Busy professional trying to postpone | Easy |
 
-### Current State (With This Framework)
-- ✅ **Both agents simulated locally** for maximum control
-- ✅ **5 customer scenarios** covering common support cases
-- ✅ **20+ metrics** captured per conversation
-- ✅ **Parallel testing** capability (run 10+ conversations simultaneously)
-- ✅ **Rich transcripts** with audio quality metadata
+## Examples
 
-### Next Step (When Ready)
-- Connect to real Acme agents via Twilio/SIP
-- A/B test different prompts objectively
-- Discover edge cases automatically
-- Measure improvement quantitatively
+```bash
+# Angry customer
+uv run python src/conversation_simulator.py angry_insufficient_funds
 
-## 🔥 Immediate Benefits
+# Hindi-English conversation
+uv run python src/conversation_simulator.py confused_elderly_hindi
 
-1. **Test prompt changes in minutes** - No manual calling required
-2. **Objective quality metrics** - Quantify improvements
-3. **Edge case discovery** - Find failure modes automatically
-4. **Regression testing** - Ensure changes don't break existing behavior
-5. **Performance baselines** - Track metrics over time
-
-## 📊 Example Metrics Captured
-
-```json
-{
-  "conversation_id": "angry_refund_1234567",
-  "duration": 87.3,
-  "turns": 14,
-  "quality_metrics": {
-    "interruptions": {
-      "count": 3,
-      "details": [...]
-    },
-    "audio_quality_events": {
-      "gibberish_count": 0,
-      "silence_gaps": 2
-    }
-  },
-  "performance": {
-    "customer": {
-      "avg_response_time": 0.8,
-      "speech_rate": 145
-    },
-    "support": {
-      "avg_response_time": 1.2,
-      "first_response_time": 2.1
-    }
-  }
-}
+# Wrong person answers phone
+uv run python src/conversation_simulator.py wrong_person_family
 ```
 
-## 🚀 Next Actions
+## Voice Generation (Automatic)
 
-1. **Immediate**: Run `uv run python run_test.py` to see the framework in action
-2. **Today**: Add your actual support prompt to `prompts/acme_system_prompt.txt`
-3. **This Week**: Run 50+ test conversations to establish baselines
-4. **Next Week**: Connect to your real agents via Twilio when ready
+The system automatically chooses the best available voice engine:
 
-## 🎯 Why This Matters
+1. **ElevenLabs** (if API key exists in `.env.local`)
+   - Better quality voices
+   - 10,000 free credits = ~10 conversations
 
-- **No more manual testing** - Automated voice conversations at scale
-- **Data-driven optimization** - Measure, don't guess
-- **Faster iteration** - Test → Measure → Improve in minutes
-- **Quality assurance** - Catch issues before customers do
+2. **OpenAI TTS** (automatic fallback)
+   - Always works if OpenAI key is set
+   - Generic but reliable voices
 
-## 📝 Technical Notes
+**Current behavior:**
+- If ElevenLabs API key is set → tries ElevenLabs first
+- If ElevenLabs fails → automatically falls back to OpenAI
+- If no ElevenLabs key → uses OpenAI directly
 
-- Built on LiveKit's production-grade infrastructure
-- Uses GPT-4o-mini for cost-effective testing
-- Supports parallel execution for rapid testing
-- All data saved as JSON for integration with your eval framework
+## Force a Specific Engine (Optional)
+
+```bash
+# Force OpenAI TTS
+uv run python src/conversation_simulator.py cooperative_parent --openai
+
+# Force ElevenLabs (requires API key)
+uv run python src/conversation_simulator.py cooperative_parent --elevenlabs
+```
+
+## Listen to Results
+
+```bash
+# Play latest audio (macOS)
+open conversations/*.mp3
+
+# List all generated conversations
+ls -la conversations/*.mp3
+```
+
+## What Gets Generated
+
+Each conversation includes:
+- **Support Agent**: फ़ैज़ान (Faizan) from Jodo, male voice
+- **Customer**: Various personas (Yash, Priya, etc.)
+- **5-15 turns** of realistic dialogue
+- **Proper protocol**: Agent greets first, follows Jodo guidelines
+- **Hindi-English mixing**: In appropriate scenarios
+
+## Cost
+
+- **ElevenLabs**: Free tier gives 10 conversations
+- **OpenAI TTS**: ~$0.015 per conversation
+
+## Troubleshooting
+
+If generation fails:
+- Check `.env.local` has `OPENAI_API_KEY` set
+- ElevenLabs is optional - system works without it
+- Each conversation takes 10-30 seconds to generate
 
 ---
 
-**Time to Build**: 4 hours
-**Lines of Code**: ~2000
-**Test Scenarios**: 5 (easily expandable)
-**Metrics Captured**: 20+ per conversation
-
-Ready to revolutionize your voice agent testing! 🚀
+**Note**: This generates complete conversations as MP3 files for testing/demos. For real-time agent-to-agent calls via LiveKit, that would require a different setup with two separate agent processes.

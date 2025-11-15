@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Conversation Generator - Control Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.95;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #667eea;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+
+        .form-section {
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #444;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .info-icon {
+            width: 18px;
+            height: 18px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            cursor: help;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+            font-size: 0.95rem;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        input[type="range"] {
+            padding: 0;
+            height: 40px;
+        }
+
+        .range-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .range-value {
+            min-width: 50px;
+            text-align: center;
+            font-weight: 600;
+            color: #667eea;
+            background: #f5f5ff;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="checkbox"] {
+            width: auto;
+            cursor: pointer;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        input[type="radio"] {
+            width: auto;
+            cursor: pointer;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-message {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.05rem;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f0f0f0;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .result-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        .audio-player {
+            width: 100%;
+            margin: 20px 0;
+        }
+
+        .transcript-box {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .transcript-turn {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+
+        .transcript-turn.customer {
+            border-left-color: #764ba2;
+        }
+
+        .speaker-label {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+
+        .transcript-turn.customer .speaker-label {
+            color: #764ba2;
+        }
+
+        .transcript-text {
+            color: #333;
+            line-height: 1.5;
+        }
+
+        .help-text {
+            font-size: 0.85rem;
+            color: #777;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+
+        .scenario-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .scenario-difficulty {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .difficulty-easy {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .difficulty-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .difficulty-hard {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .recent-conversations {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-top: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .conversation-list {
+            margin-top: 20px;
+        }
+
+        .conversation-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .conversation-item:hover {
+            background: #e9ecef;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #dc3545;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #28a745;
+        }
+
+        .collapsible {
+            background: #f5f5ff;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .collapsible:hover {
+            background: #ececff;
+        }
+
+        .collapsible-content {
+            display: none;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            margin-top: 10px;
+            border: 2px solid #f0f0f0;
+        }
+
+        .collapsible.active + .collapsible-content {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎙️ Voice Conversation Generator</h1>
+            <p>Generate realistic customer support conversations with AI voices</p>
+        </header>
+
+        <div class="status-bar" id="statusBar" style="display: none;">
+            <div class="status-message">
+                <div class="spinner" id="spinner"></div>
+                <span id="statusText">Ready to generate</span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Left Panel: Configuration -->
+            <div class="panel">
+                <h2 class="panel-title">Configuration</h2>
+
+                <form id="conversationForm">
+                    <!-- Scenario Selection -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            Scenario
+                            <span class="info-icon" title="Choose a pre-defined customer personality and situation">?</span>
+                        </h3>
+                        <div class="form-group">
+                            <select id="scenario" name="scenario">
+                                <!-- Will be populated by JS -->
+                            </select>
+                            <div id="scenarioDetails" class="scenario-card" style="display: none;">
+                                <!-- Will be populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- General Settings -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            General Settings
+                            <span class="info-icon" title="Control the length and TTS engine">?</span>
+                        </h3>
+                        <div class="form-group">
+                            <label>Maximum Turns</label>
+                            <div class="range-container">
+                                <input type="range" id="maxTurns" name="max_turns" min="2" max="20" value="6">
+                                <span class="range-value" id="maxTurnsValue">6</span>
+                            </div>
+                            <div class="help-text">Total conversation exchanges (1 turn = 1 speaker message)</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>TTS Engine</label>
+                            <div class="radio-group">
+                                <div class="radio-option">
+                                    <input type="radio" id="ttsAuto" name="tts_engine" value="auto" checked>
+                                    <label for="ttsAuto">Auto</label>
+                                </div>
+                                <div class="radio-option">
+                                    <input type="radio" id="ttsOpenAI" name="tts_engine" value="openai">
+                                    <label for="ttsOpenAI">OpenAI</label>
+                                </div>
+                                <div class="radio-option">
+                                    <input type="radio" id="ttsElevenLabs" name="tts_engine" value="elevenlabs">
+                                    <label for="ttsElevenLabs">ElevenLabs</label>
+                                </div>
+                            </div>
+                            <div class="help-text">Auto: Uses ElevenLabs if available, falls back to OpenAI</div>
+                        </div>
+                    </div>
+
+                    <!-- OpenAI TTS Settings -->
+                    <div class="form-section">
+                        <div class="collapsible" onclick="toggleSection('openaiSettings')">
+                            <h3 class="section-title" style="margin: 0;">
+                                OpenAI TTS Settings
+                                <span class="info-icon" title="Configure OpenAI text-to-speech parameters">?</span>
+                            </h3>
+                            <span>▼</span>
+                        </div>
+                        <div class="collapsible-content" id="openaiSettings">
+                            <div class="form-group">
+                                <label>Model Quality</label>
+                                <select id="openaiModel" name="openai_model">
+                                    <option value="tts-1">Standard (tts-1)</option>
+                                    <option value="tts-1-hd">HD Quality (tts-1-hd)</option>
+                                </select>
+                                <div class="help-text">HD has better quality but higher latency</div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Support Agent Voice</label>
+                                <select id="openaiVoiceSupport" name="openai_voice_support">
+                                    <option value="onyx">Onyx (Male, Deep)</option>
+                                    <option value="alloy">Alloy (Neutral)</option>
+                                    <option value="fable">Fable (British)</option>
+                                    <option value="nova">Nova (Female)</option>
+                                    <option value="echo">Echo (Male)</option>
+                                    <option value="shimmer">Shimmer (Female, Soft)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Customer Voice</label>
+                                <select id="openaiVoiceCustomer" name="openai_voice_customer">
+                                    <option value="echo">Echo (Male)</option>
+                                    <option value="nova">Nova (Female)</option>
+                                    <option value="alloy">Alloy (Neutral)</option>
+                                    <option value="fable">Fable (British)</option>
+                                    <option value="onyx">Onyx (Male, Deep)</option>
+                                    <option value="shimmer">Shimmer (Female, Soft)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Speech Speed</label>
+                                <div class="range-container">
+                                    <input type="range" id="openaiSpeed" name="openai_speed" min="0.25" max="4" step="0.05" value="1">
+                                    <span class="range-value" id="openaiSpeedValue">1.00</span>
+                                </div>
+                                <div class="help-text">0.25 = Very slow, 1.0 = Normal, 4.0 = Very fast</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ElevenLabs TTS Settings -->
+                    <div class="form-section">
+                        <div class="collapsible" onclick="toggleSection('elevenlabsSettings')">
+                            <h3 class="section-title" style="margin: 0;">
+                                ElevenLabs TTS Settings
+                                <span class="info-icon" title="Configure ElevenLabs text-to-speech parameters">?</span>
+                            </h3>
+                            <span>▼</span>
+                        </div>
+                        <div class="collapsible-content" id="elevenlabsSettings">
+                            <div class="form-group">
+                                <label>Voice Stability</label>
+                                <div class="range-container">
+                                    <input type="range" id="elevenlabsStability" name="elevenlabs_stability" min="0" max="1" step="0.05" value="0.5">
+                                    <span class="range-value" id="elevenlabsStabilityValue">0.50</span>
+                                </div>
+                                <div class="help-text">Lower = More expressive/variable, Higher = More consistent</div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Similarity Boost</label>
+                                <div class="range-container">
+                                    <input type="range" id="elevenlabsSimilarity" name="elevenlabs_similarity" min="0" max="1" step="0.05" value="0.75">
+                                    <span class="range-value" id="elevenlabsSimilarityValue">0.75</span>
+                                </div>
+                                <div class="help-text">Higher = Closer to original voice</div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Style Exaggeration</label>
+                                <div class="range-container">
+                                    <input type="range" id="elevenlabsStyle" name="elevenlabs_style" min="0" max="1" step="0.05" value="0">
+                                    <span class="range-value" id="elevenlabsStyleValue">0.00</span>
+                                </div>
+                                <div class="help-text">0 = No style, 0.2 = Natural expression, 1.0 = Very dramatic</div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Speech Speed</label>
+                                <div class="range-container">
+                                    <input type="range" id="elevenlabsSpeed" name="elevenlabs_speed" min="0.5" max="2" step="0.05" value="1">
+                                    <span class="range-value" id="elevenlabsSpeedValue">1.00</span>
+                                </div>
+                                <div class="help-text">0.5 = Half speed, 1.0 = Normal, 2.0 = Double speed</div>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="elevenlabsSpeakerBoost" name="elevenlabs_speaker_boost">
+                                    <label for="elevenlabsSpeakerBoost">Enable Speaker Boost</label>
+                                </div>
+                                <div class="help-text">Enhances voice clarity and similarity</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" id="generateBtn">
+                        🎯 Generate Conversation
+                    </button>
+                </form>
+            </div>
+
+            <!-- Right Panel: Explanation -->
+            <div class="panel">
+                <h2 class="panel-title">Understanding the Controls</h2>
+
+                <div class="form-section">
+                    <h3 class="section-title">🎭 What These Parameters Do</h3>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="color: #667eea; margin-bottom: 10px;">TTS Engine Choice</h4>
+                        <ul style="margin-left: 20px; line-height: 1.8; color: #555;">
+                            <li><strong>OpenAI:</strong> Fast, reliable, generic voices. Good for testing.</li>
+                            <li><strong>ElevenLabs:</strong> Premium quality, more expressive, better for demos.</li>
+                            <li><strong>Auto:</strong> Tries ElevenLabs first, falls back to OpenAI if needed.</li>
+                        </ul>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="color: #667eea; margin-bottom: 10px;">Voice Parameters Impact</h4>
+
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                            <strong style="color: #764ba2;">Stability (ElevenLabs)</strong>
+                            <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.6;">
+                                <li><strong>0.3-0.4:</strong> Very expressive, emotional, may vary between words</li>
+                                <li><strong>0.5:</strong> Balanced (recommended default)</li>
+                                <li><strong>0.6-0.8:</strong> Consistent, professional, less emotional range</li>
+                            </ul>
+                        </div>
+
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                            <strong style="color: #764ba2;">Style (ElevenLabs)</strong>
+                            <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.6;">
+                                <li><strong>0:</strong> No style modification (neutral delivery)</li>
+                                <li><strong>0.1-0.2:</strong> Subtle emotion, natural conversation</li>
+                                <li><strong>0.3-0.5:</strong> Clear emotional expression</li>
+                                <li><strong>>0.5:</strong> Dramatic (may sound unnatural)</li>
+                            </ul>
+                        </div>
+
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                            <strong style="color: #764ba2;">Speed</strong>
+                            <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.6;">
+                                <li><strong>0.9:</strong> Elderly, careful speakers</li>
+                                <li><strong>1.0:</strong> Normal conversation pace</li>
+                                <li><strong>1.1-1.2:</strong> Stressed, rushed, or excited</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="color: #667eea; margin-bottom: 10px;">Recommended Settings by Scenario</h4>
+
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr style="background: #f8f9fa;">
+                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #dee2e6;">Scenario</th>
+                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #dee2e6;">Settings</th>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px; border-bottom: 1px solid #dee2e6;"><strong>Angry Customer</strong></td>
+                                <td style="padding: 10px; border-bottom: 1px solid #dee2e6;">Stability: 0.4, Style: 0.25, Speed: 1.1</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px; border-bottom: 1px solid #dee2e6;"><strong>Elderly/Confused</strong></td>
+                                <td style="padding: 10px; border-bottom: 1px solid #dee2e6;">Stability: 0.5, Style: 0.1, Speed: 0.9</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px; border-bottom: 1px solid #dee2e6;"><strong>Support Agent</strong></td>
+                                <td style="padding: 10px; border-bottom: 1px solid #dee2e6;">Stability: 0.6, Style: 0.15, Speed: 0.98</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 10px; border-bottom: 1px solid #dee2e6;"><strong>Cooperative</strong></td>
+                                <td style="padding: 10px; border-bottom: 1px solid #dee2e6;">Stability: 0.5, Style: 0.2, Speed: 1.0</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107;">
+                        <strong style="color: #856404;">💡 Pro Tips</strong>
+                        <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.6; color: #856404;">
+                            <li>Start with default settings to establish a baseline</li>
+                            <li>Adjust one parameter at a time to understand its effect</li>
+                            <li>ElevenLabs has limited free credits - use OpenAI for testing</li>
+                            <li>Higher style + lower stability = more dramatic but less consistent</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Result Panel -->
+        <div class="result-panel" id="resultPanel">
+            <h2 class="panel-title">Generated Conversation</h2>
+
+            <div id="resultContent">
+                <!-- Will be populated by JS -->
+            </div>
+        </div>
+
+        <!-- Recent Conversations -->
+        <div class="recent-conversations">
+            <h2 class="panel-title">Recent Conversations</h2>
+            <div id="conversationList" class="conversation-list">
+                <!-- Will be populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let scenarios = [];
+        let isGenerating = false;
+
+        // Initialize the page
+        async function init() {
+            await loadScenarios();
+            await loadRecentConversations();
+            setupEventListeners();
+            setupRangeUpdates();
+        }
+
+        // Load scenarios from API
+        async function loadScenarios() {
+            try {
+                const response = await fetch('/api/scenarios');
+                scenarios = await response.json();
+
+                const select = document.getElementById('scenario');
+                select.innerHTML = scenarios.map(s =>
+                    `<option value="${s.id}">${s.name} - ${s.description.substring(0, 50)}...</option>`
+                ).join('');
+
+                // Show initial scenario details
+                updateScenarioDetails();
+            } catch (error) {
+                console.error('Failed to load scenarios:', error);
+            }
+        }
+
+        // Update scenario details display
+        function updateScenarioDetails() {
+            const selectedId = document.getElementById('scenario').value;
+            const scenario = scenarios.find(s => s.id === selectedId);
+
+            if (scenario) {
+                const detailsDiv = document.getElementById('scenarioDetails');
+                detailsDiv.style.display = 'block';
+
+                const difficultyClass = `difficulty-${scenario.difficulty}`;
+
+                detailsDiv.innerHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <strong>${scenario.name}</strong>
+                        <span class="scenario-difficulty ${difficultyClass}">${scenario.difficulty.toUpperCase()}</span>
+                    </div>
+                    <div style="color: #666; font-size: 0.9rem; line-height: 1.5;">
+                        <div style="margin-bottom: 8px;"><strong>Situation:</strong> ${scenario.description}</div>
+                        <div style="margin-bottom: 8px;"><strong>Emotional State:</strong> ${scenario.emotional_state}</div>
+                        <div style="margin-bottom: 8px;"><strong>Personality:</strong> ${scenario.personality}</div>
+                        ${scenario.special_behavior ? `<div><strong>Special Behavior:</strong> ${scenario.special_behavior}</div>` : ''}
+                    </div>
+                `;
+
+                // Auto-adjust parameters based on scenario
+                autoAdjustParameters(scenario);
+            }
+        }
+
+        // Auto-adjust parameters based on scenario
+        function autoAdjustParameters(scenario) {
+            // Only adjust if user hasn't manually changed them
+            if (!document.body.dataset.manuallyAdjusted) {
+                const emotion = scenario.emotional_state.toLowerCase();
+
+                if (emotion.includes('angry') || emotion.includes('frustrated')) {
+                    document.getElementById('elevenlabsStability').value = 0.45;
+                    document.getElementById('elevenlabsStyle').value = 0.25;
+                    document.getElementById('elevenlabsSpeed').value = 1.1;
+                    document.getElementById('openaiSpeed').value = 1.05;
+                } else if (scenario.id.includes('elderly')) {
+                    document.getElementById('elevenlabsStability').value = 0.5;
+                    document.getElementById('elevenlabsStyle').value = 0.1;
+                    document.getElementById('elevenlabsSpeed').value = 0.9;
+                    document.getElementById('openaiSpeed').value = 0.9;
+                } else {
+                    // Default cooperative settings
+                    document.getElementById('elevenlabsStability').value = 0.5;
+                    document.getElementById('elevenlabsStyle').value = 0.2;
+                    document.getElementById('elevenlabsSpeed').value = 1.0;
+                    document.getElementById('openaiSpeed').value = 1.0;
+                }
+
+                // Update displayed values
+                updateRangeValues();
+            }
+        }
+
+        // Load recent conversations
+        async function loadRecentConversations() {
+            try {
+                const response = await fetch('/api/conversations');
+                const conversations = await response.json();
+
+                const listDiv = document.getElementById('conversationList');
+
+                if (conversations.length === 0) {
+                    listDiv.innerHTML = '<p style="color: #999;">No conversations generated yet</p>';
+                } else {
+                    listDiv.innerHTML = conversations.map(c => `
+                        <div class="conversation-item" onclick="playAudio('${c.audio_file}')">
+                            <div>
+                                <strong>${c.scenario}</strong>
+                                <div style="color: #666; font-size: 0.9rem;">
+                                    ${new Date(c.timestamp * 1000).toLocaleString()} • ${c.turns} turns • ${c.size_kb} KB
+                                </div>
+                            </div>
+                            <button class="btn" style="padding: 5px 15px;">▶️ Play</button>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Failed to load conversations:', error);
+            }
+        }
+
+        // Play audio file
+        function playAudio(filename) {
+            const audio = new Audio(`/api/audio/${filename}`);
+            audio.play();
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Form submission
+            document.getElementById('conversationForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await generateConversation();
+            });
+
+            // Scenario change
+            document.getElementById('scenario').addEventListener('change', updateScenarioDetails);
+
+            // Mark as manually adjusted when user changes parameters
+            const inputs = document.querySelectorAll('input[type="range"], input[type="checkbox"], select');
+            inputs.forEach(input => {
+                input.addEventListener('change', () => {
+                    document.body.dataset.manuallyAdjusted = 'true';
+                });
+            });
+        }
+
+        // Setup range value updates
+        function setupRangeUpdates() {
+            const ranges = [
+                { id: 'maxTurns', valueId: 'maxTurnsValue' },
+                { id: 'openaiSpeed', valueId: 'openaiSpeedValue', decimals: 2 },
+                { id: 'elevenlabsStability', valueId: 'elevenlabsStabilityValue', decimals: 2 },
+                { id: 'elevenlabsSimilarity', valueId: 'elevenlabsSimilarityValue', decimals: 2 },
+                { id: 'elevenlabsStyle', valueId: 'elevenlabsStyleValue', decimals: 2 },
+                { id: 'elevenlabsSpeed', valueId: 'elevenlabsSpeedValue', decimals: 2 }
+            ];
+
+            ranges.forEach(range => {
+                const input = document.getElementById(range.id);
+                const valueSpan = document.getElementById(range.valueId);
+
+                input.addEventListener('input', () => {
+                    const value = range.decimals ?
+                        parseFloat(input.value).toFixed(range.decimals) :
+                        input.value;
+                    valueSpan.textContent = value;
+                });
+            });
+        }
+
+        // Update all range values
+        function updateRangeValues() {
+            const event = new Event('input');
+            document.querySelectorAll('input[type="range"]').forEach(input => {
+                input.dispatchEvent(event);
+            });
+        }
+
+        // Toggle collapsible sections
+        function toggleSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            const collapsible = section.previousElementSibling;
+
+            if (section.style.display === 'block') {
+                section.style.display = 'none';
+                collapsible.classList.remove('active');
+            } else {
+                section.style.display = 'block';
+                collapsible.classList.add('active');
+            }
+        }
+
+        // Generate conversation
+        async function generateConversation() {
+            if (isGenerating) return;
+
+            isGenerating = true;
+            const generateBtn = document.getElementById('generateBtn');
+            const statusBar = document.getElementById('statusBar');
+            const statusText = document.getElementById('statusText');
+            const spinner = document.getElementById('spinner');
+            const resultPanel = document.getElementById('resultPanel');
+
+            // Show status
+            generateBtn.disabled = true;
+            generateBtn.textContent = '⏳ Generating...';
+            statusBar.style.display = 'block';
+            spinner.style.display = 'block';
+            statusText.textContent = 'Generating conversation...';
+
+            // Get form data
+            const formData = new FormData(document.getElementById('conversationForm'));
+            const data = Object.fromEntries(formData.entries());
+
+            // Convert checkbox
+            data.elevenlabs_speaker_boost = formData.has('elevenlabs_speaker_boost');
+
+            try {
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Show success
+                    statusText.textContent = '✅ Conversation generated successfully!';
+                    spinner.style.display = 'none';
+
+                    // Display result
+                    displayResult(result);
+                    resultPanel.style.display = 'block';
+
+                    // Reload recent conversations
+                    await loadRecentConversations();
+
+                    // Scroll to result
+                    resultPanel.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    throw new Error(result.error || 'Generation failed');
+                }
+            } catch (error) {
+                console.error('Generation error:', error);
+                statusText.textContent = `❌ Error: ${error.message}`;
+                spinner.style.display = 'none';
+
+                // Show error in result panel
+                resultPanel.style.display = 'block';
+                document.getElementById('resultContent').innerHTML = `
+                    <div class="error-message">
+                        <strong>Generation Failed:</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.textContent = '🎯 Generate Conversation';
+                isGenerating = false;
+
+                // Hide status after 5 seconds
+                setTimeout(() => {
+                    if (!isGenerating) {
+                        statusBar.style.display = 'none';
+                    }
+                }, 5000);
+            }
+        }
+
+        // Display generation result
+        function displayResult(result) {
+            const content = document.getElementById('resultContent');
+
+            const audioFile = result.audio_file.split('/').pop();
+
+            content.innerHTML = `
+                <div class="success-message">
+                    Successfully generated ${result.turns} turns using ${result.tts_engine}
+                </div>
+
+                <h3 style="margin-top: 20px; margin-bottom: 15px; color: #667eea;">🔊 Audio Playback</h3>
+                <audio controls class="audio-player">
+                    <source src="/api/audio/${audioFile}" type="audio/mpeg">
+                    Your browser does not support audio playback.
+                </audio>
+
+                <h3 style="margin-top: 30px; margin-bottom: 15px; color: #667eea;">📝 Transcript</h3>
+                <div class="transcript-box">
+                    ${result.transcript.map(turn => `
+                        <div class="transcript-turn ${turn.speaker}">
+                            <div class="speaker-label">${turn.speaker}</div>
+                            <div class="transcript-text">${turn.text || '(empty response)'}</div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <strong>Files saved:</strong><br>
+                    Audio: ${result.audio_file}<br>
+                    Transcript: ${result.transcript_file}
+                </div>
+            `;
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

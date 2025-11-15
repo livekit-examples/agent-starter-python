@@ -20,16 +20,40 @@ load_dotenv(".env.local")
 # Initialize OpenAI client
 client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+OPEN_AI_MODEL = "gpt-5-mini-2025-08-07"
+MAX_TOKENS = 1000
+
+# Try to import ElevenLabs for better Indian voices
+try:
+    from elevenlabs_voices_simple import SimpleVoiceGenerator
+    ELEVENLABS_AVAILABLE = True
+    print("✅ ElevenLabs available for voice generation")
+except (ImportError, ValueError) as e:
+    print(f"⚠️ ElevenLabs not available: {e}")
+    print("Using OpenAI TTS instead.")
+    ELEVENLABS_AVAILABLE = False
 
 class ConversationSimulator:
     """Simulates realistic customer support conversations with audio"""
 
-    def __init__(self, scenario: Dict[str, Any], support_prompt: str):
+    def __init__(self, scenario: Dict[str, Any], support_prompt: str, use_elevenlabs: bool = None):
         self.scenario = scenario
         self.support_prompt = support_prompt
         self.conversation_history = []
         self.audio_segments = []
         self.transcript = []
+
+        # Determine TTS engine
+        if use_elevenlabs is None:
+            use_elevenlabs = ELEVENLABS_AVAILABLE and os.getenv("ELEVENLABS_API_KEY")
+
+        self.use_elevenlabs = use_elevenlabs and ELEVENLABS_AVAILABLE
+
+        if self.use_elevenlabs:
+            self.voice_generator = SimpleVoiceGenerator()
+            print("🎙️ Using ElevenLabs for voice generation")
+        else:
+            print("🎙️ Using OpenAI TTS")
 
     async def generate_conversation(self, max_turns: int = 10) -> Dict[str, Any]:
         """Generate a complete conversation between customer and support"""
@@ -37,20 +61,12 @@ class ConversationSimulator:
         print(f"\n🎭 Generating conversation: {self.scenario['name']}")
         print("="*50)
 
-        # Initialize conversation with customer's opening
-        customer_opening = await self._generate_customer_message(is_opening=True)
-        await self._add_turn("customer", customer_opening)
+        # Initialize conversation with support agent's greeting
+        support_greeting = await self._generate_support_message(is_opening=True)
+        await self._add_turn("support", support_greeting)
 
         # Continue conversation
         for turn in range(max_turns - 1):
-            # Support responds
-            support_response = await self._generate_support_message()
-            await self._add_turn("support", support_response)
-
-            # Check if conversation should end
-            if self._should_end_conversation(support_response):
-                break
-
             # Customer responds
             customer_response = await self._generate_customer_message()
             await self._add_turn("customer", customer_response)
@@ -62,6 +78,14 @@ class ConversationSimulator:
                 await self._add_turn("support", final_message)
                 break
 
+            # Support responds
+            support_response = await self._generate_support_message()
+            await self._add_turn("support", support_response)
+
+            # Check if conversation should end
+            if self._should_end_conversation(support_response):
+                break
+
         return {
             "scenario": self.scenario['name'],
             "transcript": self.transcript,
@@ -69,48 +93,50 @@ class ConversationSimulator:
             "metrics": self._calculate_metrics()
         }
 
-    async def _generate_customer_message(self, is_opening: bool = False, is_closing: bool = False) -> str:
+    async def _generate_customer_message(self, is_closing: bool = False) -> str:
         """Generate a customer message using GPT"""
 
-        if is_opening:
-            prompt = f"""You are a customer calling support with the following profile:
-Name: {self.scenario['customer_name']}
-Issue: {self.scenario['issue']}
-Personality: {self.scenario['personality']}
-Emotional state: {self.scenario.get('emotional_state', 'neutral')}
+        context = self._get_conversation_context()
 
-Start the conversation by explaining your issue. Be {self.scenario['difficulty']} to deal with.
-Speak naturally as this person would speak. Keep it under 2 sentences.
-Do not use any formatting or quotation marks. Just speak."""
-        else:
-            context = self._get_conversation_context()
-            prompt = f"""You are {self.scenario['customer_name']}, continuing a support conversation.
+        prompt = f"""You are {self.scenario['customer_name']} receiving a call from customer support.
 Your personality: {self.scenario['personality']}
+Your issue/situation: {self.scenario['issue']}
 Your goal: {self.scenario['goal']}
+Emotional state: {self.scenario.get('emotional_state', 'neutral')}
 
 Conversation so far:
 {context}
 
-Respond naturally to the support agent. Keep it under 2 sentences.
+Respond naturally based on your personality and situation.
+If the agent just introduced themselves, respond according to your scenario (confirm identity, express confusion, etc.).
 {self.scenario.get('special_behavior', '')}
-Do not use any formatting or quotation marks. Just speak."""
+Keep it under 2 sentences. Do not use any formatting or quotation marks. Just speak."""
 
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=OPEN_AI_MODEL,
             messages=[{"role": "system", "content": prompt}],
-            temperature=0.8,
-            max_tokens=100
+            temperature=1.0,  # New model only supports default temperature
+            max_completion_tokens=MAX_TOKENS
         )
 
         return response.choices[0].message.content.strip()
 
-    async def _generate_support_message(self, is_closing: bool = False) -> str:
+    async def _generate_support_message(self, is_opening: bool = False, is_closing: bool = False) -> str:
         """Generate a support agent message using GPT"""
+
+        # Skip intermediate prompt for the new model to avoid issues
+        intermediate_prompt = ""
 
         context = self._get_conversation_context()
 
-        if is_closing:
-            prompt = f"""{self.support_prompt}
+        if is_opening:
+            prompt = f"""{self.support_prompt}{intermediate_prompt}
+
+This is the start of a new call. Greet the customer warmly and introduce yourself.
+Follow the exact script in your guidelines for the opening. State your name, company, and the purpose of the call.
+Keep it natural and conversational. Do not use any formatting or quotation marks."""
+        elif is_closing:
+            prompt = f"""{self.support_prompt}{intermediate_prompt}
 
 Conversation so far:
 {context}
@@ -118,7 +144,7 @@ Conversation so far:
 The customer seems satisfied. Provide a warm closing to end the conversation.
 Keep it under 2 sentences. Do not use any formatting or quotation marks."""
         else:
-            prompt = f"""{self.support_prompt}
+            prompt = f"""{self.support_prompt}{intermediate_prompt}
 
 Conversation so far:
 {context}
@@ -127,13 +153,18 @@ Respond professionally to help the customer. Keep it under 2 sentences.
 Follow your guidelines and policies. Do not use any formatting or quotation marks."""
 
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=OPEN_AI_MODEL,
             messages=[{"role": "system", "content": prompt}],
-            temperature=0.7,
-            max_tokens=100
+            temperature=1.0,  # New model only supports default temperature
+            max_completion_tokens=MAX_TOKENS
         )
 
-        return response.choices[0].message.content.strip()
+        result = response.choices[0].message.content
+        if not result:
+            print(f"   [WARNING: Empty response from OpenAI for support agent]")
+            return "I understand your concern. Let me check the details of the failed payment for you."
+
+        return result.strip()
 
     async def _add_turn(self, speaker: str, text: str):
         """Add a turn to the conversation with audio generation"""
@@ -148,26 +179,61 @@ Follow your guidelines and policies. Do not use any formatting or quotation mark
         # Print to console
         icon = "👤" if speaker == "customer" else "🎧"
         print(f"\n{icon} {speaker.upper()}: {text}")
+        print(f"   [Generating audio with {'ElevenLabs' if self.use_elevenlabs else 'OpenAI'}...]")
 
         # Generate audio
-        voice = "echo" if speaker == "customer" else "nova"  # Different voices
+        audio_data = None
 
-        try:
-            audio_response = await client.audio.speech.create(
-                model="tts-1",
-                voice=voice,
-                input=text
-            )
+        if self.use_elevenlabs:
+            # Use ElevenLabs for authentic Indian voices
+            try:
+                # Pass custom params to ElevenLabs if available
+                if hasattr(self, 'custom_params') and 'elevenlabs' in self.custom_params:
+                    self.voice_generator.custom_params = self.custom_params['elevenlabs']
 
-            # Store audio data
+                audio_data = await self.voice_generator.generate_speech(
+                    text=text,
+                    speaker=speaker,
+                    scenario=self.scenario
+                )
+            except Exception as e:
+                print(f"ElevenLabs failed, falling back to OpenAI: {e}")
+
+        # Fallback to OpenAI TTS if ElevenLabs fails or not available
+        if audio_data is None:
+            # Check for custom parameters
+            if hasattr(self, 'custom_params') and 'openai' in self.custom_params:
+                params = self.custom_params['openai']
+                model = params.get('model', 'tts-1')
+                if speaker == "customer":
+                    voice = params.get('voice_customer', 'echo')
+                else:
+                    voice = params.get('voice_support', 'onyx')
+                speed = params.get('speed', 1.0)
+            else:
+                # Default settings
+                model = "tts-1"
+                voice = "echo" if speaker == "customer" else "onyx"
+                speed = 1.0
+
+            try:
+                audio_response = await client.audio.speech.create(
+                    model=model,
+                    voice=voice,
+                    input=text,
+                    speed=speed
+                )
+                audio_data = audio_response.content
+            except Exception as e:
+                print(f"Warning: Could not generate audio: {e}")
+
+        # Store audio data if generated
+        if audio_data:
             self.audio_segments.append({
                 "speaker": speaker,
-                "audio_data": audio_response.content,
+                "audio_data": audio_data,
                 "text": text
             })
-
-        except Exception as e:
-            print(f"Warning: Could not generate audio: {e}")
 
         # Add to conversation history for context
         self.conversation_history.append(f"{speaker}: {text}")
@@ -257,8 +323,13 @@ Follow these guidelines:
 - Escalate if necessary"""
 
 
-async def simulate_conversation(scenario_name: str = "cooperative_parent"):
-    """Main function to simulate a conversation"""
+async def simulate_conversation(scenario_name: str = "cooperative_parent", use_elevenlabs: bool = None):
+    """Main function to simulate a conversation
+
+    Args:
+        scenario_name: Name of the scenario to simulate
+        use_elevenlabs: Whether to use ElevenLabs TTS (None=auto-detect, True=force, False=use OpenAI)
+    """
 
     scenario = SCENARIOS.get(scenario_name, SCENARIOS["cooperative_parent"])
     # Add the scenario name to the scenario dict
@@ -272,11 +343,12 @@ async def simulate_conversation(scenario_name: str = "cooperative_parent"):
     else:
         support_prompt = DEFAULT_SUPPORT_PROMPT
 
-    # Create simulator
-    simulator = ConversationSimulator(scenario, support_prompt)
+    # Create simulator with TTS preference
+    simulator = ConversationSimulator(scenario, support_prompt, use_elevenlabs=use_elevenlabs)
 
-    # Generate conversation
-    result = await simulator.generate_conversation(max_turns=8)
+    # Generate conversation (reduced turns for ElevenLabs testing)
+    max_turns = 4 if use_elevenlabs else 8
+    result = await simulator.generate_conversation(max_turns=max_turns)
 
     # Export files
     files = await simulator.export_conversation()
@@ -296,10 +368,28 @@ async def simulate_conversation(scenario_name: str = "cooperative_parent"):
 if __name__ == "__main__":
     import sys
 
-    scenario = sys.argv[1] if len(sys.argv) > 1 else "cooperative_parent"
+    # Parse arguments
+    args = sys.argv[1:]
+    use_elevenlabs = None
+    scenario = "cooperative_parent"
+
+    if "--elevenlabs" in args:
+        use_elevenlabs = True
+        args.remove("--elevenlabs")
+    elif "--openai" in args:
+        use_elevenlabs = False
+        args.remove("--openai")
+
+    if args:
+        scenario = args[0]
 
     if scenario not in SCENARIOS:
-        print(f"Available scenarios: {', '.join(SCENARIOS.keys())}")
+        print(f"\nUsage: python conversation_simulator.py [scenario] [--elevenlabs|--openai]")
+        print(f"\nAvailable scenarios: {', '.join(SCENARIOS.keys())}")
+        print(f"\nTTS Options:")
+        print(f"  --elevenlabs : Force use of ElevenLabs (requires API key)")
+        print(f"  --openai     : Force use of OpenAI TTS")
+        print(f"  (default)    : Auto-detect based on available API keys")
         sys.exit(1)
 
-    asyncio.run(simulate_conversation(scenario))
+    asyncio.run(simulate_conversation(scenario, use_elevenlabs=use_elevenlabs))
