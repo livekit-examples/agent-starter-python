@@ -348,7 +348,7 @@ async def simulate_conversation(scenario_name: str = "cooperative_parent", use_e
     scenario['name'] = scenario_name
 
     # Load support prompt
-    prompt_file = Path("prompts/acme_system_prompt.txt")
+    prompt_file = Path("prompts/support_agent_system_prompt.txt")
     if prompt_file.exists():
         support_prompt = prompt_file.read_text()
     else:

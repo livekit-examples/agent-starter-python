@@ -101,7 +101,7 @@ def generate_conversation():
         scenario['name'] = scenario_id
 
         # Load support prompt
-        prompt_file = Path("prompts/acme_system_prompt.txt")
+        prompt_file = Path("prompts/support_agent_system_prompt.txt")
         if prompt_file.exists():
             support_prompt = prompt_file.read_text()
         else:

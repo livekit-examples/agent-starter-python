@@ -18,7 +18,7 @@ class SupportAgent(Agent):
 
         # Use provided prompt or load default
         if system_prompt is None:
-            prompt_file = Path("prompts/acme_system_prompt.txt")
+            prompt_file = Path("prompts/support_agent_system_prompt.txt")
             if prompt_file.exists():
                 system_prompt = prompt_file.read_text()
             else:
