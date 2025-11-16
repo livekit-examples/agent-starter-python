@@ -5,7 +5,6 @@ Voice Conversation Generator CLI - Clean modular interface
 import asyncio
 import sys
 from pathlib import Path
-from typing import Optional
 import click
 
 # Add parent directory to path for imports
