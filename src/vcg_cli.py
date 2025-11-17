@@ -62,7 +62,8 @@ async def _generate_conversation(
 
     # Initialize services
     print("📦 Loading services...")
-    persona_service = PersonaService()
+    tts_provider = config.providers.tts.get('type', 'openai')
+    persona_service = PersonaService(tts_provider=tts_provider)
     persona_service.load_default_personas()
 
     # Get personas

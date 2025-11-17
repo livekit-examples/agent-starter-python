@@ -53,9 +53,15 @@ class OpenAITTSProvider(TTSProvider):
             Audio data as bytes (MP3 format)
         """
         # Use voice config or defaults
+        # Voice selection is handled by PersonaService via VoiceCatalog
+        # For OpenAI, voice_id and voice_name are the same (e.g., 'onyx', 'echo')
         model = voice_config.model or self.default_model
-        voice = voice_config.voice_name or self.default_voice
+        voice = voice_config.voice_id or voice_config.voice_name or self.default_voice
         speed = voice_config.speed
+
+        # OpenAI TTS doesn't support language parameter - it auto-detects
+        # Remove it from kwargs if present
+        kwargs.pop('language', None)
 
         # Validate voice
         if voice not in self.SUPPORTED_VOICES:

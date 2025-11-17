@@ -106,39 +106,11 @@ class CartesiaTTSProvider(TTSProvider):
         if language not in self.SUPPORTED_LANGUAGES:
             language = self.default_language
 
-        # Map common voice names to Cartesia voice IDs
-        # For Hindi/Hinglish (hi language), use Indian voices
-        # For English/other languages, use default English voices
-        is_hindi = language in ['hi', 'hindi', 'hinglish']
-
-        voice_name_mapping_hi = {
-            # Hindi/Hinglish mappings (use Indian voices)
-            'onyx': 'fd2ada67-c2d9-4afe-b474-6386b87d8fc3',  # Ishan for support
-            'alloy': '1259b7e3-cb8a-43df-9446-30971a46b8b0',  # Devansh for customer
-            'echo': '1259b7e3-cb8a-43df-9446-30971a46b8b0',  # Devansh for male customer
-            'fable': '1259b7e3-cb8a-43df-9446-30971a46b8b0',  # Devansh for elderly male
-            'nova': '6ccbfb76-1fc6-48f7-b71d-91ac6298247b',  # Fallback to English female (TODO: add Hindi female)
-            'shimmer': '6ccbfb76-1fc6-48f7-b71d-91ac6298247b',  # Fallback to English female (TODO: add Hindi female)
-        }
-
-        voice_name_mapping_en = {
-            # English mappings
-            'onyx': 'a0e99841-438c-4a64-b679-ae501e7d6091',  # Professional male
-            'alloy': 'a0e99841-438c-4a64-b679-ae501e7d6091',  # Professional male
-            'echo': 'a167e0f3-df7e-4d52-a9c3-f949145efdab',  # Customer support man
-            'fable': 'a0e99841-438c-4a64-b679-ae501e7d6091',  # Professional male
-            'nova': 'f9836c6e-a0bd-460e-9d3c-f7299fa60f94',  # Professional female
-            'shimmer': '6ccbfb76-1fc6-48f7-b71d-91ac6298247b',  # Natural female
-        }
-
-        # Choose mapping based on language
-        voice_name_mapping = voice_name_mapping_hi if is_hindi else voice_name_mapping_en
-
-        # If voice_id is a name from our defaults or OpenAI mapping, resolve it
+        # Voice selection is handled by PersonaService via VoiceCatalog
+        # The voice_id should already be a valid Cartesia voice ID
+        # For backwards compatibility, check if it's a DEFAULT_VOICES key
         if voice_id in self.DEFAULT_VOICES:
             voice_id = self.DEFAULT_VOICES[voice_id]
-        elif voice_id in voice_name_mapping:
-            voice_id = voice_name_mapping[voice_id]
 
         try:
             # Generate audio using bytes streaming method

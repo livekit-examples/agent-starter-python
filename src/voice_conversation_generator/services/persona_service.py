@@ -11,20 +11,24 @@ from ..models import (
     EmotionalState,
     VoiceConfig
 )
+from .voice_catalog import get_voice_catalog
 
 
 class PersonaService:
     """Service for managing personas"""
 
-    def __init__(self, personas_dir: str = "personas"):
+    def __init__(self, personas_dir: str = "personas", tts_provider: str = "openai"):
         """Initialize persona service
 
         Args:
             personas_dir: Directory containing persona definitions
+            tts_provider: TTS provider to use for voice selection (default: 'openai')
         """
         self.personas_dir = Path(personas_dir)
         self.customer_personas: Dict[str, CustomerPersona] = {}
         self.support_personas: Dict[str, SupportPersona] = {}
+        self.tts_provider = tts_provider
+        self.voice_catalog = get_voice_catalog()
 
     def load_default_personas(self):
         """Load default personas from the existing scenarios"""
@@ -54,6 +58,21 @@ class PersonaService:
             prompt_text = """You are a helpful customer support agent.
 Be professional, empathetic, and solution-focused."""
 
+        # Query voice catalog for support agent (Hinglish support for Indian context)
+        support_voice = self.voice_catalog.get_voice(
+            provider=self.tts_provider,
+            languages=["hi", "en"],  # Hinglish support
+            accent="india",
+            gender="male",
+            persona_type="support_agent"
+        )
+
+        # Create voice config from catalog
+        voice_config = VoiceConfig(provider=self.tts_provider, speed=1.0)
+        if support_voice:
+            voice_config.voice_id = support_voice.voice_id
+            voice_config.voice_name = support_voice.name
+
         # Create default support persona
         support_persona = SupportPersona(
             id="default_support",
@@ -72,11 +91,7 @@ Be professional, empathetic, and solution-focused."""
                 "Offer payment plans for amounts over ₹5000",
                 "Escalate to supervisor for refund requests over ₹10000"
             ],
-            voice_config=VoiceConfig(
-                provider="openai",
-                voice_name="onyx",
-                speed=1.0
-            )
+            voice_config=voice_config
         )
 
         self.support_personas["default"] = support_persona
@@ -94,17 +109,19 @@ Be professional, empathetic, and solution-focused."""
                 "issue": "School fee payment failed due to technical error",
                 "goal": "Understand the issue and make the payment",
                 "special_behavior": "",
-                "difficulty": "easy"
+                "difficulty": "easy",
+                "languages": ["hi", "en"]  # Hinglish speaker
             },
             "angry_insufficient_funds": {
                 "name": "Angry Parent - Financial Stress",
                 "customer_name": "प्रिया गुप्ता",  # Priya Gupta
-                "personality": "Frustrated parent dealing with financial stress",
+                "personality": "Frustrated female parent dealing with financial stress",
                 "emotional_state": "angry",
                 "issue": "Payment failed due to insufficient funds, but angry about repeated calls",
                 "goal": "Express frustration and potentially avoid immediate payment",
                 "special_behavior": "Start angry but may calm down if agent is empathetic",
-                "difficulty": "hard"
+                "difficulty": "hard",
+                "languages": ["hi", "en"]  # Hinglish speaker
             },
             "wrong_person_family": {
                 "name": "Wrong Person - Wife Takes Message",
@@ -124,7 +141,8 @@ Be professional, empathetic, and solution-focused."""
                 "issue": "Doesn't understand online payments, usually son handles it",
                 "goal": "Understand what's happening and get help from son",
                 "special_behavior": "Mix Hindi and English. Ask agent to speak slowly. Mention 'मेरा बेटा' (my son) handles these things",
-                "difficulty": "medium"
+                "difficulty": "medium",
+                "languages": ["hi", "en"]  # Hinglish speaker (primarily Hindi)
             },
             "financial_hardship": {
                 "name": "Financial Hardship - Needs Help",
@@ -185,15 +203,34 @@ Be professional, empathetic, and solution-focused."""
                 EmotionalState.NEUTRAL
             )
 
-            # Determine voice config based on personality
-            voice_config = VoiceConfig(provider="openai", speed=1.0)
-            if "female" in scenario_data["personality"].lower() or "wife" in scenario_data["personality"].lower():
-                voice_config.voice_name = "nova"  # Female voice
-            elif "elderly" in scenario_data["personality"].lower():
-                voice_config.voice_name = "fable"  # Older sounding voice
-                voice_config.speed = 0.9  # Slightly slower
-            else:
-                voice_config.voice_name = "echo"  # Default male voice
+            # Determine gender from personality
+            personality_lower = scenario_data["personality"].lower()
+            gender = "female" if ("female" in personality_lower or "wife" in personality_lower) else "male"
+
+            # Get languages from scenario data (default to English)
+            languages = scenario_data.get("languages", ["en"])
+
+            # Determine accent/country (default to India for this project)
+            accent = "india" if any(lang in ["hi", "hindi"] for lang in languages) else "us"
+
+            # Query voice catalog for best matching voice
+            voice_entry = self.voice_catalog.get_voice(
+                provider=self.tts_provider,
+                languages=languages,
+                accent=accent,
+                gender=gender,
+                persona_type="customer"
+            )
+
+            # Create voice config from catalog entry
+            voice_config = VoiceConfig(provider=self.tts_provider, speed=1.0)
+            if voice_entry:
+                voice_config.voice_id = voice_entry.voice_id
+                voice_config.voice_name = voice_entry.name
+
+            # Adjust speed for elderly personas
+            if "elderly" in personality_lower:
+                voice_config.speed = 0.9
 
             persona = CustomerPersona(
                 id=scenario_id,
@@ -204,6 +241,7 @@ Be professional, empathetic, and solution-focused."""
                 goal=scenario_data["goal"],
                 special_behavior=scenario_data.get("special_behavior", ""),
                 difficulty=scenario_data.get("difficulty", "medium"),
+                languages=languages,  # Include languages from scenario
                 voice_config=voice_config
             )
 

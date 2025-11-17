@@ -125,6 +125,7 @@ class CustomerPersona(Persona):
     goal: str = ""
     special_behavior: str = ""
     difficulty: str = "medium"  # easy, medium, hard
+    languages: List[str] = field(default_factory=lambda: ['en'])  # Languages spoken by this persona
 
     def __post_init__(self):
         """Ensure type is set to CUSTOMER"""
@@ -138,7 +139,8 @@ class CustomerPersona(Persona):
             "issue": self.issue,
             "goal": self.goal,
             "special_behavior": self.special_behavior,
-            "difficulty": self.difficulty
+            "difficulty": self.difficulty,
+            "languages": self.languages
         })
         return base_dict
 
@@ -166,7 +168,8 @@ class CustomerPersona(Persona):
             issue=data.get("issue", ""),
             goal=data.get("goal", ""),
             special_behavior=data.get("special_behavior", ""),
-            difficulty=data.get("difficulty", "medium")
+            difficulty=data.get("difficulty", "medium"),
+            languages=data.get("languages", ["en"])
         )
 
 

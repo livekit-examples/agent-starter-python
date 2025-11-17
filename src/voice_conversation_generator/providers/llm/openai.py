@@ -32,7 +32,7 @@ class OpenAILLMProvider(LLMProvider):
         )
 
         # Set default model
-        self.model = config.get('model', 'gpt-4')
+        self.model = config.get('model', 'gpt-4.1')
 
     async def generate_completion(
         self,

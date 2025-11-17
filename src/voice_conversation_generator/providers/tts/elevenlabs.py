@@ -65,13 +65,9 @@ class ElevenLabsTTSProvider(TTSProvider):
         if not self.available:
             raise RuntimeError("ElevenLabs client not available")
 
-        # Determine voice ID
+        # Voice selection is handled by PersonaService via VoiceCatalog
+        # The voice_id should already be a valid ElevenLabs voice ID
         voice_id = voice_config.voice_id or self.default_voice_id
-
-        # Check for speaker type hint in kwargs
-        speaker_type = kwargs.get('speaker_type', 'support')
-        if not voice_config.voice_id and speaker_type in self.DEFAULT_VOICES:
-            voice_id = self.DEFAULT_VOICES[speaker_type]
 
         # Build voice settings
         voice_settings = {

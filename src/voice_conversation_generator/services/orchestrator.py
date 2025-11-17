@@ -367,15 +367,39 @@ Follow your guidelines and policies. Do not use any formatting or quotation mark
         # Combine audio if requested
         combined_audio = None
         if combine_audio and any(t.audio_data for t in conversation.turns):
-            # Combine all audio segments
+            # Combine all audio segments using pydub
             audio_segments = []
             for turn in conversation.turns:
                 if turn.audio_data:
                     audio_segments.append(turn.audio_data)
 
             if audio_segments:
-                # Simple concatenation - in production, might add silence gaps
-                combined_audio = b"".join(audio_segments)
+                # Use pydub to properly combine MP3 files
+                try:
+                    from pydub import AudioSegment
+                    import io
+
+                    # Load each MP3 segment
+                    combined = None
+                    for audio_bytes in audio_segments:
+                        segment = AudioSegment.from_mp3(io.BytesIO(audio_bytes))
+                        if combined is None:
+                            combined = segment
+                        else:
+                            combined += segment  # Properly concatenate audio
+
+                    # Export combined audio as MP3
+                    if combined:
+                        output_buffer = io.BytesIO()
+                        combined.export(output_buffer, format='mp3', bitrate='128k')
+                        combined_audio = output_buffer.getvalue()
+
+                except ImportError:
+                    print("Warning: pydub not available. Audio combination may not work correctly.")
+                    combined_audio = b"".join(audio_segments)  # Fallback
+                except Exception as e:
+                    print(f"Warning: Audio combination failed: {e}. Using fallback.")
+                    combined_audio = b"".join(audio_segments)  # Fallback
 
         # Save to storage
         storage_paths = await self.storage.save_conversation(
