@@ -13,11 +13,22 @@ class CartesiaTTSProvider(TTSProvider):
 
     # Default voice IDs for different personas
     DEFAULT_VOICES = {
-        'support_male': 'a0e99841-438c-4a64-b679-ae501e7d6091',  # Professional male
-        'support_female': 'f9836c6e-a0bd-460e-9d3c-f7299fa60f94',  # Professional female
-        'customer_male': 'a167e0f3-df7e-4d52-a9c3-f949145efdab',  # Customer support man
-        'customer_female': '6ccbfb76-1fc6-48f7-b71d-91ac6298247b',  # Natural female
-        'default': 'a0e99841-438c-4a64-b679-ae501e7d6091'
+        # English voices
+        'support_male_en': 'a0e99841-438c-4a64-b679-ae501e7d6091',  # Professional male (English)
+        'support_female_en': 'f9836c6e-a0bd-460e-9d3c-f7299fa60f94',  # Professional female (English)
+        'customer_male_en': 'a167e0f3-df7e-4d52-a9c3-f949145efdab',  # Customer support man (English)
+        'customer_female_en': '6ccbfb76-1fc6-48f7-b71d-91ac6298247b',  # Natural female (English)
+
+        # Hindi/Hinglish voices
+        'support_male_hi': 'fd2ada67-c2d9-4afe-b474-6386b87d8fc3',  # Ishan - Conversational male for Hinglish sales and customer support
+        'support_male_hinglish': 'fd2ada67-c2d9-4afe-b474-6386b87d8fc3',  # Ishan (alias)
+        'customer_male_hi': '1259b7e3-cb8a-43df-9446-30971a46b8b0',  # Devansh - Warm, conversational Indian male
+        'customer_male_hinglish': '1259b7e3-cb8a-43df-9446-30971a46b8b0',  # Devansh (alias)
+
+        # Generic defaults (use Hinglish for Indian context)
+        'support_male': 'fd2ada67-c2d9-4afe-b474-6386b87d8fc3',  # Ishan
+        'customer_male': '1259b7e3-cb8a-43df-9446-30971a46b8b0',  # Devansh
+        'default': 'fd2ada67-c2d9-4afe-b474-6386b87d8fc3'  # Ishan for default
     }
 
     SUPPORTED_MODELS = ['sonic-3', 'sonic-2', 'sonic-turbo']
@@ -85,7 +96,7 @@ class CartesiaTTSProvider(TTSProvider):
         # voice_config.model may contain provider-specific model names (e.g., "tts-1" for OpenAI)
         model = self.default_model
         voice_id = voice_config.voice_id or voice_config.voice_name or self.default_voice
-        language = kwargs.get('language', self.default_language)
+        language = kwargs.pop('language', self.default_language)  # Use pop() to remove from kwargs
 
         # Validate model
         if model not in self.SUPPORTED_MODELS:
@@ -96,15 +107,32 @@ class CartesiaTTSProvider(TTSProvider):
             language = self.default_language
 
         # Map common voice names to Cartesia voice IDs
-        # This handles cases where personas use OpenAI voice names
-        voice_name_mapping = {
+        # For Hindi/Hinglish (hi language), use Indian voices
+        # For English/other languages, use default English voices
+        is_hindi = language in ['hi', 'hindi', 'hinglish']
+
+        voice_name_mapping_hi = {
+            # Hindi/Hinglish mappings (use Indian voices)
+            'onyx': 'fd2ada67-c2d9-4afe-b474-6386b87d8fc3',  # Ishan for support
+            'alloy': '1259b7e3-cb8a-43df-9446-30971a46b8b0',  # Devansh for customer
+            'echo': '1259b7e3-cb8a-43df-9446-30971a46b8b0',  # Devansh for male customer
+            'fable': '1259b7e3-cb8a-43df-9446-30971a46b8b0',  # Devansh for elderly male
+            'nova': '6ccbfb76-1fc6-48f7-b71d-91ac6298247b',  # Fallback to English female (TODO: add Hindi female)
+            'shimmer': '6ccbfb76-1fc6-48f7-b71d-91ac6298247b',  # Fallback to English female (TODO: add Hindi female)
+        }
+
+        voice_name_mapping_en = {
+            # English mappings
             'onyx': 'a0e99841-438c-4a64-b679-ae501e7d6091',  # Professional male
-            'alloy': 'a0e99841-438c-4a64-b679-ae501e7d6091',  # Map to professional male
+            'alloy': 'a0e99841-438c-4a64-b679-ae501e7d6091',  # Professional male
             'echo': 'a167e0f3-df7e-4d52-a9c3-f949145efdab',  # Customer support man
-            'fable': 'a0e99841-438c-4a64-b679-ae501e7d6091',  # Map to professional male
+            'fable': 'a0e99841-438c-4a64-b679-ae501e7d6091',  # Professional male
             'nova': 'f9836c6e-a0bd-460e-9d3c-f7299fa60f94',  # Professional female
             'shimmer': '6ccbfb76-1fc6-48f7-b71d-91ac6298247b',  # Natural female
         }
+
+        # Choose mapping based on language
+        voice_name_mapping = voice_name_mapping_hi if is_hindi else voice_name_mapping_en
 
         # If voice_id is a name from our defaults or OpenAI mapping, resolve it
         if voice_id in self.DEFAULT_VOICES:

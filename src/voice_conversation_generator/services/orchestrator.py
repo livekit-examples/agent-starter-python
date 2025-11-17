@@ -285,9 +285,15 @@ Follow your guidelines and policies. Do not use any formatting or quotation mark
 
         # Generate audio
         try:
+            # Detect if text contains Hindi characters or is Hinglish
+            # If so, pass language='hi' to TTS provider
+            has_hindi = any('\u0900' <= char <= '\u097F' for char in text)
+            language = 'hi' if has_hindi else 'en'
+
             audio_data = await self.tts.generate_speech(
                 text=text,
-                voice_config=persona.voice_config
+                voice_config=persona.voice_config,
+                language=language
             )
 
             if audio_data:
