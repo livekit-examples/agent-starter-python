@@ -7,12 +7,9 @@ from livekit.agents import (
     AgentSession,
     JobContext,
     JobProcess,
-    MetricsCollectedEvent,
-    RoomInputOptions,
-    WorkerOptions,
     cli,
     inference,
-    metrics,
+    room_io,
 )
 from livekit.plugins import noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
@@ -49,12 +46,13 @@ class Assistant(Agent):
     #     return "sunny with a temperature of 70 degrees."
 
 
-server = AgentServer()
-
-
-@server.setup()
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load()
+
+
+server = AgentServer(
+   setup_fnc = prewarm, 
+)
 
 
 @server.rtc_session()
@@ -97,21 +95,6 @@ async def my_agent(ctx: JobContext):
     #     llm=openai.realtime.RealtimeModel(voice="marin")
     # )
 
-    # Metrics collection, to measure pipeline performance
-    # For more information, see https://docs.livekit.io/agents/build/metrics/
-    usage_collector = metrics.UsageCollector()
-
-    @session.on("metrics_collected")
-    def _on_metrics_collected(ev: MetricsCollectedEvent):
-        metrics.log_metrics(ev.metrics)
-        usage_collector.collect(ev.metrics)
-
-    async def log_usage():
-        summary = usage_collector.get_summary()
-        logger.info(f"Usage: {summary}")
-
-    ctx.add_shutdown_callback(log_usage)
-
     # # Add a virtual avatar to the session, if desired
     # # For other providers, see https://docs.livekit.io/agents/models/avatar/
     # avatar = hedra.AvatarSession(
@@ -124,9 +107,11 @@ async def my_agent(ctx: JobContext):
     await session.start(
         agent=Assistant(),
         room=ctx.room,
-        room_input_options=RoomInputOptions(
-            # For telephony applications, use `BVCTelephony` for best results
-            noise_cancellation=noise_cancellation.BVC(),
+        room_options=room_io.RoomOptions(
+            audio_input=room_io.AudioInputOptions(
+                # For telephony applications, use `BVCTelephony` for best results
+                noise_cancellation=noise_cancellation.BVC(),
+            ),
         ),
     )
 
