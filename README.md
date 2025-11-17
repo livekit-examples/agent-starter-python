@@ -53,7 +53,7 @@ Clone the repository and install dependencies to a virtual environment:
 
 ```console
 cd agent-starter-python
-uv sync --prerelease=allow
+uv sync
 ```
 
 Sign up for [LiveKit Cloud](https://cloud.livekit.io/) then set up the environment by copying `.env.example` to `.env.local` and filling in the required keys:
