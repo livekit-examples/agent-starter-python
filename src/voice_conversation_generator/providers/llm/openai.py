@@ -94,8 +94,8 @@ class OpenAILLMProvider(LLMProvider):
             "temperature": temperature
         }
 
-        # Use max_completion_tokens for newer models
-        if model.startswith('gpt-5') or model in ['gpt-4o', 'gpt-4o-mini']:
+        # Use max_completion_tokens for newer models (gpt-5, gpt-4.1, gpt-4o series)
+        if model.startswith('gpt-5') or model.startswith('gpt-4.') or model in ['gpt-4o', 'gpt-4o-mini']:
             completion_params["max_completion_tokens"] = max_tokens
         else:
             completion_params["max_tokens"] = max_tokens
