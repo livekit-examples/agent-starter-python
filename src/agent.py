@@ -1,6 +1,7 @@
 import logging
 
 from dotenv import load_dotenv
+from livekit import rtc
 from livekit.agents import (
     Agent,
     AgentServer,
@@ -46,13 +47,14 @@ class Assistant(Agent):
     #     return "sunny with a temperature of 70 degrees."
 
 
+server = AgentServer()
+
+
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load()
 
 
-server = AgentServer(
-   setup_fnc = prewarm, 
-)
+server.setup_fnc = prewarm
 
 
 @server.rtc_session()
@@ -107,9 +109,11 @@ async def my_agent(ctx: JobContext):
     await session.start(
         agent=Assistant(),
         room=ctx.room,
-room_options=room_io.RoomOptions(
+        room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
-                noise_cancellation=lambda params: noise_cancellation.BVCTelephony() if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP else noise_cancellation.BVC(),
+                noise_cancellation=lambda params: noise_cancellation.BVCTelephony()
+                if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
+                else noise_cancellation.BVC(),
             ),
         ),
     )
