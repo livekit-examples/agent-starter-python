@@ -130,32 +130,37 @@ class LocalStorageProvider(StorageGateway):
 
         result = {}
 
+        # Pre-calculate file paths
+        transcript_key = f"{base_name}_transcript.json"
+        audio_key = f"{base_name}_conversation.mp3"
+        metrics_key = f"{base_name}_metrics.json"
+
+        transcript_path = str(self.base_path / 'transcripts' / transcript_key)
+        audio_path = str(self.base_path / 'audio' / audio_key) if audio_data else None
+        metrics_path = str(self.base_path / 'metrics' / metrics_key)
+
+        # Update conversation with storage paths BEFORE serializing
+        conversation.transcript_url = transcript_path
+        if audio_data:
+            conversation.audio_url = audio_path
+
         # Save transcript
         transcript_data = conversation.to_dict(include_turns=True)
         transcript_data['metrics'] = metrics.to_dict()
-        transcript_key = f"{base_name}_transcript.json"
         result['transcript'] = await self.save_transcript(transcript_data, transcript_key)
 
         # Save metrics separately
-        metrics_key = f"{base_name}_metrics.json"
-        metrics_path = self.base_path / 'metrics' / metrics_key
-        metrics_path.parent.mkdir(parents=True, exist_ok=True)
-        metrics_path.write_text(json.dumps(metrics.to_dict(), indent=2, default=str))
-        result['metrics'] = str(metrics_path)
+        Path(metrics_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(metrics_path).write_text(json.dumps(metrics.to_dict(), indent=2, default=str))
+        result['metrics'] = metrics_path
 
         # Save audio if provided
         if audio_data:
-            audio_key = f"{base_name}_conversation.mp3"
             result['audio'] = await self.save_audio(
                 audio_data,
                 audio_key,
                 metadata={'conversation_id': conversation.id, 'scenario': conversation.scenario_name}
             )
-
-        # Update conversation with storage paths
-        conversation.transcript_url = result['transcript']
-        if 'audio' in result:
-            conversation.audio_url = result['audio']
 
         return result
 

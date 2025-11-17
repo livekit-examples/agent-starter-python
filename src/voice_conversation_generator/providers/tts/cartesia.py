@@ -46,8 +46,14 @@ class CartesiaTTSProvider(TTSProvider):
         # Initialize async client
         self.client = AsyncCartesia(api_key=api_key)
 
-        # Set defaults
-        self.default_model = config.get('model', 'sonic-3')
+        # Set defaults - validate model is a Cartesia model, not from another provider
+        config_model = config.get('model', 'sonic-3')
+        if config_model not in self.SUPPORTED_MODELS:
+            # Config contains non-Cartesia model (e.g., "tts-1" from OpenAI), use default
+            self.default_model = 'sonic-3'
+        else:
+            self.default_model = config_model
+
         self.default_voice = config.get('default_voice', self.DEFAULT_VOICES['default'])
         self.default_language = config.get('language', 'en')
 
@@ -75,7 +81,9 @@ class CartesiaTTSProvider(TTSProvider):
             Audio data as bytes (PCM format)
         """
         # Use voice config or defaults
-        model = voice_config.model or self.default_model
+        # Note: Always use Cartesia's default_model, not voice_config.model
+        # voice_config.model may contain provider-specific model names (e.g., "tts-1" for OpenAI)
+        model = self.default_model
         voice_id = voice_config.voice_id or voice_config.voice_name or self.default_voice
         language = kwargs.get('language', self.default_language)
 
@@ -87,9 +95,22 @@ class CartesiaTTSProvider(TTSProvider):
         if language not in self.SUPPORTED_LANGUAGES:
             language = self.default_language
 
-        # If voice_id is a name from our defaults, resolve it
+        # Map common voice names to Cartesia voice IDs
+        # This handles cases where personas use OpenAI voice names
+        voice_name_mapping = {
+            'onyx': 'a0e99841-438c-4a64-b679-ae501e7d6091',  # Professional male
+            'alloy': 'a0e99841-438c-4a64-b679-ae501e7d6091',  # Map to professional male
+            'echo': 'a167e0f3-df7e-4d52-a9c3-f949145efdab',  # Customer support man
+            'fable': 'a0e99841-438c-4a64-b679-ae501e7d6091',  # Map to professional male
+            'nova': 'f9836c6e-a0bd-460e-9d3c-f7299fa60f94',  # Professional female
+            'shimmer': '6ccbfb76-1fc6-48f7-b71d-91ac6298247b',  # Natural female
+        }
+
+        # If voice_id is a name from our defaults or OpenAI mapping, resolve it
         if voice_id in self.DEFAULT_VOICES:
             voice_id = self.DEFAULT_VOICES[voice_id]
+        elif voice_id in voice_name_mapping:
+            voice_id = voice_name_mapping[voice_id]
 
         try:
             # Generate audio using bytes streaming method
