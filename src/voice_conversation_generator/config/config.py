@@ -9,6 +9,23 @@ from dotenv import load_dotenv
 from dataclasses import dataclass, field
 
 
+def _get_project_root() -> Path:
+    """Find the project root directory (where pyproject.toml or .git exists)"""
+    current = Path(__file__).resolve().parent
+    while current != current.parent:
+        if (current / 'pyproject.toml').exists() or (current / '.git').exists():
+            return current
+        current = current.parent
+    # Fallback to current directory if not found
+    return Path.cwd()
+
+
+def _get_default_data_path() -> str:
+    """Get absolute path to data directory"""
+    project_root = _get_project_root()
+    return str(project_root / "data" / "conversations")
+
+
 @dataclass
 class AppConfig:
     """Application configuration"""
@@ -23,7 +40,7 @@ class StorageConfig:
     """Storage configuration"""
     type: str = "local"  # local, gcs, s3
     local: Dict[str, Any] = field(default_factory=lambda: {
-        "base_path": "data/conversations",
+        "base_path": _get_default_data_path(),
         "create_dirs": True
     })
     gcs: Dict[str, Any] = field(default_factory=lambda: {
