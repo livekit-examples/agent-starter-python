@@ -32,7 +32,7 @@ def cli(ctx):
 @click.option('--customer', '-c', default='cooperative_parent', help='Customer persona ID')
 @click.option('--support', '-s', default='default', help='Support persona ID')
 @click.option('--max-turns', '-t', default=10, help='Maximum conversation turns')
-@click.option('--tts', type=click.Choice(['openai', 'elevenlabs', 'auto']), default='auto', help='TTS provider')
+@click.option('--tts', type=click.Choice(['openai', 'elevenlabs', 'cartesia', 'auto']), default='auto', help='TTS provider')
 @click.option('--save/--no-save', default=True, help='Save conversation to storage')
 @click.pass_context
 def generate(ctx, customer: str, support: str, max_turns: int, tts: str, save: bool):

@@ -16,6 +16,7 @@ Create `.env.local` in project root:
 ```bash
 OPENAI_API_KEY=your_openai_key
 ELEVENLABS_API_KEY=your_elevenlabs_key  # Optional
+CARTESIA_API_KEY=your_cartesia_key      # Optional
 ```
 
 ## Basic Usage
@@ -28,7 +29,7 @@ uv run python src/vcg_cli.py generate
 # Specify customer persona and TTS provider
 uv run python src/vcg_cli.py generate \
   --customer angry_insufficient_funds \
-  --tts elevenlabs \
+  --tts cartesia \
   --max-turns 6
 ```
 
@@ -64,6 +65,7 @@ data/conversations/
 ### TTS Providers
 - `openai` - Fast, reliable (default)
 - `elevenlabs` - More realistic voices
+- `cartesia` - Ultra-realistic Sonic TTS models (supports 15+ languages)
 
 ### Advanced Settings
 Create `config.yaml` for custom settings:

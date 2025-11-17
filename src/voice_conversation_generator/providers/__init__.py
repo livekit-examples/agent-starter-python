@@ -14,6 +14,7 @@ from .llm.openai import OpenAILLMProvider
 # TTS Providers
 from .tts.openai import OpenAITTSProvider
 from .tts.elevenlabs import ElevenLabsTTSProvider
+from .tts.cartesia import CartesiaTTSProvider
 
 # Storage Providers
 from .storage.local import LocalStorageProvider
@@ -31,6 +32,7 @@ __all__ = [
     # TTS implementations
     "OpenAITTSProvider",
     "ElevenLabsTTSProvider",
+    "CartesiaTTSProvider",
 
     # Storage implementations
     "LocalStorageProvider",

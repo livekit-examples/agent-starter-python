@@ -10,6 +10,7 @@ from ..providers import (
     OpenAILLMProvider,
     OpenAITTSProvider,
     ElevenLabsTTSProvider,
+    CartesiaTTSProvider,
     LocalStorageProvider
 )
 
@@ -61,6 +62,8 @@ class ProviderFactory:
             return OpenAITTSProvider(provider_config)
         elif provider_type == 'elevenlabs':
             return ElevenLabsTTSProvider(provider_config)
+        elif provider_type == 'cartesia':
+            return CartesiaTTSProvider(provider_config)
         else:
             raise ValueError(f"Unsupported TTS provider type: {provider_type}")
 
