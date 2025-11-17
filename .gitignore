@@ -10,3 +10,14 @@ KMS
 *.egg-info
 .pytest_cache
 .ruff_cache
+
+# Generated test outputs
+conversations/
+results/
+report.html
+*.mp3
+*.wav
+
+# Temporary test files
+test_connection.py
+test_simple.py
