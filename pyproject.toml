@@ -11,6 +11,8 @@ requires-python = ">=3.9"
 dependencies = [
     "livekit-agents[silero,turn-detector]~=1.2",
     "livekit-plugins-noise-cancellation~=0.2",
+    "livekit-plugins-google",
+    "livekit-plugins-openai",
     "python-dotenv",
     "httpx",
 ]

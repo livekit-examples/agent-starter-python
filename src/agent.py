@@ -1,5 +1,6 @@
 import json
 import asyncio
+import os
 from textwrap import dedent
 from dotenv import load_dotenv
 
@@ -17,7 +18,7 @@ from livekit.agents import (
     llm,
 )
 from livekit import rtc
-from livekit.plugins import noise_cancellation, silero
+from livekit.plugins import noise_cancellation, silero, google, openai
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 load_dotenv(".env.local")
@@ -131,7 +132,6 @@ async def warmup_llm(llm_instance, instructions: str):
     """
     Send a dummy request to the LLM to trigger cache warmup using the LiveKit pipeline.
     """
-    print("[WARMUP] Sending warmup request...")
     try:
         chat_ctx = llm.ChatContext(
             messages=[
@@ -143,18 +143,16 @@ async def warmup_llm(llm_instance, instructions: str):
         stream = await llm_instance.chat(chat_ctx=chat_ctx, max_tokens=1)
         async for _ in stream:
             pass
-            
-        print("[WARMUP] Completed")
     except Exception as e:
-        print(f"[WARMUP] Failed: {e}")
+        print(f"[AGENT] WARNING: LLM warmup failed: {e}")
 
 @server.rtc_session(agent_name="default")
 async def entrypoint(ctx: JobContext):
-    # Get agent_id from job metadata (from RoomAgentDispatch)
-    agent_id = None
-    if hasattr(ctx, 'job') and ctx.job and hasattr(ctx.job, 'metadata'):
-        job_metadata = ctx.job.metadata
-        print(f"[AGENT] Room metadata: {job_metadata}")
+    try:
+        # Get agent_id from job metadata (from RoomAgentDispatch)
+        agent_id = None
+        if hasattr(ctx, 'job') and ctx.job and hasattr(ctx.job, 'metadata'):
+            job_metadata = ctx.job.metadata
         
         # Extract agent_id from job metadata
         if job_metadata:
@@ -168,26 +166,30 @@ async def entrypoint(ctx: JobContext):
                 # If not found in JSON, use the metadata string directly
                 if not agent_id:
                     agent_id = job_metadata if isinstance(job_metadata, str) else str(job_metadata)
-            except Exception:
+            except Exception as e:
+                print(f"[AGENT] Error parsing metadata: {e}")
                 # If parsing fails, use metadata directly as agent_id
                 agent_id = job_metadata if isinstance(job_metadata, str) else str(job_metadata)
-    
-    # Fetch agent configuration from API
-    config = await fetch_agent_config(agent_id) if agent_id else None
-    
-    # Extract system_prompt and voice_id from config, or use defaults
-    system_prompt = config.get("system_prompt") if config else None
-    voice_id = config.get("voice_id", "c961b81c-a935-4c17-bfb3-ba2239de8c2f") if config else "c961b81c-a935-4c17-bfb3-ba2239de8c2f"
-    
-    # Log voice_id
-    print(f"[AGENT] Voice ID: {voice_id}")
-    
-    # Log the actual instructions being provided to the model
-    if system_prompt:
-        agent_instructions = system_prompt
-    else:
-        # Fallback to default instructions
-        agent_instructions = dedent("""
+        
+        # Fetch agent configuration from API
+        config = None
+        if agent_id:
+            try:
+                config = await fetch_agent_config(agent_id)
+            except Exception as e:
+                print(f"[AGENT] Error fetching config: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        # Extract system_prompt and voice_id from config, or use defaults
+        system_prompt = config.get("system_prompt") if config else None
+        voice_id = config.get("voice_id", "c961b81c-a935-4c17-bfb3-ba2239de8c2f") if config else "c961b81c-a935-4c17-bfb3-ba2239de8c2f"
+        
+        if system_prompt:
+            agent_instructions = system_prompt
+        else:
+            # Fallback to default instructions
+            agent_instructions = dedent("""
             ### ROLE
             You are a potential customer interested in real estate. You are currently receiving a phone call from a sales agent at a Real Estate Brokerage.
 
@@ -215,55 +217,161 @@ async def entrypoint(ctx: JobContext):
             ### START
             Await the opening line from the Salesperson.
         """).strip()
-    
-    print(f"[AGENT] Instructions being provided to the model:")
-    print(f"[AGENT] {'=' * 80}")
-    print(agent_instructions)
-    print(f"[AGENT] {'=' * 80}")
-    
-    # Create agent with dynamic instructions
-    dynamic_agent = Agent(instructions=agent_instructions)
-    
-    session = AgentSession(
-        stt=inference.STT(model="assemblyai/universal-streaming", language="en"),
-        llm=inference.LLM(model="openai/gpt-4.1-mini"),
-        tts=inference.TTS(
-            model="cartesia/sonic-3",
-            voice=voice_id,
-            extra_kwargs={"speed": 1.15},
-        ),
-        turn_detection=MultilingualModel(),  # type: ignore
-        vad=ctx.proc.userdata["vad"],
-        preemptive_generation=True,
-    )
+        
+        # Create agent with dynamic instructions
+        dynamic_agent = Agent(instructions=agent_instructions)
+        
+        # Configure TTS voice from API config
+        # Use voice_id directly from API - backend will send the correct voice name
+        voice_name = voice_id if voice_id else "en-US-Chirp3-HD-Achird"
+        
+        # Google Cloud credentials
+        credentials_info = None
+        
+        # Check for credentials file in multiple locations
+        credentials_file = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        
+        if not credentials_file:
+            import pathlib
+            current_file = pathlib.Path(__file__).resolve()
+            project_root = current_file.parent.parent
+            default_creds_file = project_root / "tts-simulation-56fb5a8ca3f3.json"
+            
+            if default_creds_file.exists():
+                credentials_file = str(default_creds_file)
+            else:
+                cwd = pathlib.Path.cwd()
+                cwd_creds_file = cwd / "tts-simulation-56fb5a8ca3f3.json"
+                if cwd_creds_file.exists():
+                    credentials_file = str(cwd_creds_file)
+        
+        if credentials_file and os.path.exists(credentials_file):
+            try:
+                import json
+                with open(credentials_file, 'r') as f:
+                    creds_data = json.load(f)
+                
+                # Validate required fields
+                required_fields = ["type", "project_id", "private_key", "client_email"]
+                if (all(field in creds_data for field in required_fields) and
+                    creds_data.get("type") == "service_account" and
+                    creds_data.get("private_key") and creds_data["private_key"].strip()):
+                    
+                    # Fix escaped newlines if present
+                    private_key = creds_data["private_key"]
+                    if "\\n" in private_key and "\n" not in private_key:
+                        private_key = private_key.replace("\\n", "\n")
+                        creds_data["private_key"] = private_key
+                    
+                    # Validate key can be parsed
+                    if "BEGIN" in private_key and "END" in private_key:
+                        try:
+                            from google.oauth2 import service_account
+                            service_account.Credentials.from_service_account_info(creds_data)
+                            credentials_info = creds_data.copy()
+                            credentials_file = None
+                        except Exception:
+                            credentials_file = None
+                            credentials_info = None
+                    else:
+                        credentials_file = None
+                else:
+                    credentials_file = None
+            except Exception:
+                credentials_file = None
+        
+        if not credentials_info and not credentials_file:
+            print("[AGENT] WARNING: No Google Cloud credentials found. Using Application Default Credentials.")
+        
+        openai_key = os.getenv("OPENAI_API_KEY")
+        
+        # Create session
+        try:
+            stt_kwargs = {
+                "languages": "en-US",
+                "spoken_punctuation": False,
+            }
+            if credentials_info:
+                stt_kwargs["credentials_info"] = credentials_info
+            elif credentials_file:
+                stt_kwargs["credentials_file"] = credentials_file
+            
+            stt_instance = google.STT(**stt_kwargs)
+            
+            llm_instance = openai.LLM(
+                model="gpt-4o-mini",
+                api_key=openai_key,
+            )
+            
+            tts_kwargs = {
+                "voice_name": voice_name,
+                "language": "en-US",
+                "speaking_rate": 1.15,
+            }
+            if credentials_info:
+                tts_kwargs["credentials_info"] = credentials_info
+            elif credentials_file:
+                tts_kwargs["credentials_file"] = credentials_file
+            
+            tts_instance = google.TTS(**tts_kwargs)
+            
+            session = AgentSession(
+                stt=stt_instance,
+                llm=llm_instance,
+                tts=tts_instance,
+                turn_detection=MultilingualModel(),  # type: ignore
+                vad=ctx.proc.userdata["vad"],
+                preemptive_generation=True,
+            )
+        except Exception as e:
+            print(f"[AGENT] ERROR creating session: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
+        
+        noise_cancellation_option = noise_cancellation.BVC()
+        warmup_task = asyncio.create_task(warmup_llm(session.llm, agent_instructions))
+        
+        try:
+            await session.start(
+                agent=dynamic_agent,
+                room=ctx.room,
+                room_input_options=RoomInputOptions(
+                    noise_cancellation=noise_cancellation_option,
+                ),
+            )
+        except Exception as e:
+            print(f"[AGENT] ERROR starting session: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
+        
+        try:
+            await ctx.connect()
+        except Exception as e:
+            print(f"[AGENT] ERROR connecting to room: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
 
-    # Determine noise cancellation based on participant type
-    # For telephony applications, use BVCTelephony for best results
-    noise_cancellation_option = noise_cancellation.BVC()
-    
-    # Start warmup in background
-    warmup_task = asyncio.create_task(warmup_llm(session.llm, agent_instructions))
+        try:
+            await warmup_task
+        except Exception:
+            pass  # Warmup is optional, failure is non-critical
 
-    await session.start(
-        agent=dynamic_agent,
-        room=ctx.room,
-        room_input_options=RoomInputOptions(
-            noise_cancellation=noise_cancellation_option,
-        ),
-    )
-    
-    await ctx.connect()
-
-    # Wait for warmup to complete
-    await warmup_task
-
-    # Notify client that agent is ready
-    print("[AGENT] Sending agent_ready event")
-    await ctx.room.local_participant.publish_data(
-        payload=json.dumps({"type": "agent_ready"}),
-        topic="agent_status",
-        reliable=True,
-    )
+        try:
+            await ctx.room.local_participant.publish_data(
+                payload=json.dumps({"type": "agent_ready"}),
+                topic="agent_status",
+                reliable=True,
+            )
+        except Exception:
+            pass  # Non-critical event, agent can function without it
+    except Exception as e:
+        print(f"[AGENT] FATAL ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 if __name__ == "__main__":
