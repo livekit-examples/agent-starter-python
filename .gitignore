@@ -9,3 +9,6 @@ KMS
 *.egg-info
 .pytest_cache
 .ruff_cache
+
+# Google Cloud credentials
+tts-simulation-56fb5a8ca3f3.json
