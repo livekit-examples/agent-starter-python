@@ -9,11 +9,3 @@ KMS
 *.egg-info
 .pytest_cache
 .ruff_cache
-
-# Google Cloud credentials
-*.json
-!package.json
-!package-lock.json
-!tsconfig.json
-!pyproject.toml
-!uv.lock
