@@ -12,6 +12,7 @@ dependencies = [
     "livekit-agents[silero,turn-detector]~=1.2",
     "livekit-plugins-noise-cancellation~=0.2",
     "python-dotenv",
+    "httpx",
 ]
 
 [dependency-groups]
