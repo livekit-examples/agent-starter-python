@@ -227,29 +227,15 @@ async def entrypoint(ctx: JobContext):
         
         # Google Cloud credentials
         credentials_info = None
+        credentials_file = None
         
-        # Check for credentials file in multiple locations
-        credentials_file = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-        
-        if not credentials_file:
-            import pathlib
-            current_file = pathlib.Path(__file__).resolve()
-            project_root = current_file.parent.parent
-            default_creds_file = project_root / "tts-simulation-56fb5a8ca3f3.json"
-            
-            if default_creds_file.exists():
-                credentials_file = str(default_creds_file)
-            else:
-                cwd = pathlib.Path.cwd()
-                cwd_creds_file = cwd / "tts-simulation-56fb5a8ca3f3.json"
-                if cwd_creds_file.exists():
-                    credentials_file = str(cwd_creds_file)
-        
-        if credentials_file and os.path.exists(credentials_file):
+        # First, try to get credentials from environment variable (for deployment)
+        # This is the preferred method for cloud deployments
+        google_creds_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+        if google_creds_json:
             try:
                 import json
-                with open(credentials_file, 'r') as f:
-                    creds_data = json.load(f)
+                creds_data = json.loads(google_creds_json)
                 
                 # Validate required fields
                 required_fields = ["type", "project_id", "private_key", "client_email"]
@@ -269,16 +255,63 @@ async def entrypoint(ctx: JobContext):
                             from google.oauth2 import service_account
                             service_account.Credentials.from_service_account_info(creds_data)
                             credentials_info = creds_data.copy()
-                            credentials_file = None
                         except Exception:
-                            credentials_file = None
                             credentials_info = None
+            except Exception:
+                credentials_info = None
+        
+        # If not from env var, check for credentials file
+        if not credentials_info:
+            credentials_file = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            
+            if not credentials_file:
+                import pathlib
+                current_file = pathlib.Path(__file__).resolve()
+                project_root = current_file.parent.parent
+                default_creds_file = project_root / "tts-simulation-56fb5a8ca3f3.json"
+                
+                if default_creds_file.exists():
+                    credentials_file = str(default_creds_file)
+                else:
+                    cwd = pathlib.Path.cwd()
+                    cwd_creds_file = cwd / "tts-simulation-56fb5a8ca3f3.json"
+                    if cwd_creds_file.exists():
+                        credentials_file = str(cwd_creds_file)
+            
+            if credentials_file and os.path.exists(credentials_file):
+                try:
+                    import json
+                    with open(credentials_file, 'r') as f:
+                        creds_data = json.load(f)
+                    
+                    # Validate required fields
+                    required_fields = ["type", "project_id", "private_key", "client_email"]
+                    if (all(field in creds_data for field in required_fields) and
+                        creds_data.get("type") == "service_account" and
+                        creds_data.get("private_key") and creds_data["private_key"].strip()):
+                        
+                        # Fix escaped newlines if present
+                        private_key = creds_data["private_key"]
+                        if "\\n" in private_key and "\n" not in private_key:
+                            private_key = private_key.replace("\\n", "\n")
+                            creds_data["private_key"] = private_key
+                        
+                        # Validate key can be parsed
+                        if "BEGIN" in private_key and "END" in private_key:
+                            try:
+                                from google.oauth2 import service_account
+                                service_account.Credentials.from_service_account_info(creds_data)
+                                credentials_info = creds_data.copy()
+                                credentials_file = None
+                            except Exception:
+                                credentials_file = None
+                                credentials_info = None
+                        else:
+                            credentials_file = None
                     else:
                         credentials_file = None
-                else:
+                except Exception:
                     credentials_file = None
-            except Exception:
-                credentials_file = None
         
         if not credentials_info and not credentials_file:
             print("[AGENT] WARNING: No Google Cloud credentials found. Using Application Default Credentials.")
