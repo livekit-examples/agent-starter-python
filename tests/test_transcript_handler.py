@@ -4,8 +4,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-from transcript_handler import (
+from livekit_recording import (
     S3Uploader,
     TranscriptData,
     TranscriptEntry,
@@ -214,7 +213,7 @@ class TestS3Uploader:
 
         assert uploader.prefix == "test-prefix"
 
-    @patch("transcript_handler.boto3.client")
+    @patch("livekit_recording.transcript.boto3.client")
     def test_upload_transcript_success(self, mock_boto3_client):
         """Test successful transcript upload."""
         mock_s3 = MagicMock()
@@ -257,7 +256,7 @@ class TestS3Uploader:
         parsed = json.loads(body)
         assert parsed["room_name"] == "test-room"
 
-    @patch("transcript_handler.boto3.client")
+    @patch("livekit_recording.transcript.boto3.client")
     def test_upload_transcript_failure(self, mock_boto3_client):
         """Test transcript upload failure handling."""
         from botocore.exceptions import ClientError

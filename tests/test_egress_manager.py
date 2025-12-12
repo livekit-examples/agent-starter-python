@@ -4,8 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from livekit.protocol import egress as egress_proto
-
-from egress_manager import (
+from livekit_recording import (
     EgressConfig,
     EgressFileInfo,
     EgressManager,
@@ -38,8 +37,8 @@ class TestEgressConfig:
         assert config.livekit_api_key == "test-api-key"
         assert config.livekit_api_secret == "test-api-secret"
 
-    def test_init_with_env_vars(self):
-        """Test initializing with environment variables."""
+    def test_from_settings(self):
+        """Test creating config from Settings object."""
         with patch.dict(
             "os.environ",
             {
@@ -51,10 +50,18 @@ class TestEgressConfig:
                 "LIVEKIT_API_SECRET": "env-api-secret",
             },
         ):
-            config = EgressConfig(
-                s3_bucket="test-bucket",
+            from livekit_recording import AWSSettings, LiveKitSettings, Settings
+
+            settings = Settings(
+                aws=AWSSettings.from_env(),
+                livekit=LiveKitSettings.from_env(),
+            )
+            config = EgressConfig.from_settings(
+                settings, bucket="test-bucket", prefix="test-prefix"
             )
 
+            assert config.s3_bucket == "test-bucket"
+            assert config.s3_prefix == "test-prefix"
             assert config.aws_access_key == "env-access-key"
             assert config.aws_secret_key == "env-secret-key"
             assert config.aws_region == "eu-west-1"
@@ -240,6 +247,78 @@ class TestEgressManager:
         result = await manager.stop_recording()
 
         assert result is None  # Returns None on failure
+
+    @pytest.mark.asyncio
+    async def test_stop_recording_delayed_file_results(self):
+        """Test that file_results are waited for after EGRESS_COMPLETE.
+
+        On LiveKit Cloud, file_results may not be immediately available when
+        egress status becomes EGRESS_COMPLETE due to S3 upload delays.
+        The manager should continue polling until file_results appear.
+        """
+        config = EgressConfig(
+            s3_bucket="test-bucket",
+        )
+        manager = EgressManager(config)
+        manager._egress_id = "EG_TEST123456"
+
+        # Mock file result that will appear after delay
+        mock_file_result = MagicMock()
+        mock_file_result.filename = "test-room-20251212-120000.ogg"
+        mock_file_result.location = (
+            "s3://test-bucket/audio/test-room-20251212-120000.ogg"
+        )
+        mock_file_result.duration = 60000000000
+        mock_file_result.size = 1024000
+
+        # Mock egress info - first returns COMPLETE without file_results,
+        # then returns COMPLETE with file_results
+        mock_egress_info_no_results = MagicMock()
+        mock_egress_info_no_results.status = egress_proto.EgressStatus.EGRESS_COMPLETE
+        mock_egress_info_no_results.file_results = []
+
+        mock_egress_info_with_results = MagicMock()
+        mock_egress_info_with_results.status = egress_proto.EgressStatus.EGRESS_COMPLETE
+        mock_egress_info_with_results.file_results = [mock_file_result]
+
+        # Mock list responses
+        mock_list_response_no_results = MagicMock()
+        mock_list_response_no_results.items = [mock_egress_info_no_results]
+
+        mock_list_response_with_results = MagicMock()
+        mock_list_response_with_results.items = [mock_egress_info_with_results]
+
+        # Create a counter to track calls
+        call_count = 0
+
+        async def mock_list_egress(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            # First 2 calls return no file_results, then return with results
+            if call_count <= 2:
+                return mock_list_response_no_results
+            return mock_list_response_with_results
+
+        # Mock the LiveKit API
+        mock_egress_service = AsyncMock()
+        mock_egress_service.stop_egress = AsyncMock()
+        mock_egress_service.list_egress = AsyncMock(side_effect=mock_list_egress)
+
+        mock_api = MagicMock()
+        mock_api.egress = mock_egress_service
+
+        manager._api = mock_api
+
+        result = await manager.stop_recording()
+
+        # Should have polled multiple times and eventually got file_results
+        assert call_count >= 3
+        assert result is not None
+        assert isinstance(result, EgressFileInfo)
+        assert result.filename == "test-room-20251212-120000.ogg"
+        assert result.location == "s3://test-bucket/audio/test-room-20251212-120000.ogg"
+        assert result.duration == 60000000000
+        assert result.size == 1024000
 
     @pytest.mark.asyncio
     async def test_close(self):
