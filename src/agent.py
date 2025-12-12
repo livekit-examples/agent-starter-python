@@ -28,7 +28,7 @@ from loguru import logger
 settings = Settings.load()
 
 # S3 bucket configuration for recordings and transcripts
-S3_BUCKET = "audivi-audio-recordings"
+S3_BUCKET = "livekit-bucket-us-east-1-cd2x"
 S3_PREFIX = "livekit-demos"
 
 

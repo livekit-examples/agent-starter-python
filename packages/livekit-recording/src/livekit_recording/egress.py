@@ -174,6 +174,14 @@ class S3AudioRecorder:
         try:
             s3_upload = self._create_s3_upload()
 
+            # Log S3 configuration for debugging
+            logger.info(
+                f"Starting egress with S3 config: "
+                f"bucket={self.config.s3_bucket}, "
+                f"region={self.config.aws_region}, "
+                f"access_key_prefix={self.config.aws_access_key[:4] if self.config.aws_access_key else 'None'}..."
+            )
+
             # Build the filepath with prefix
             # Use session_id if provided for matching with transcript, otherwise use LiveKit's {time} placeholder
             filepath_prefix = (
@@ -324,10 +332,15 @@ class S3AudioRecorder:
                         current_time = asyncio.get_event_loop().time()
                         if complete_time is None:
                             complete_time = current_time
-                            logger.debug(
-                                f"Egress completed but file_results not yet available, "
-                                f"waiting up to {file_results_timeout}s for upload, "
-                                f"egress_id={egress_id}"
+                            # Log detailed egress info for debugging S3 upload issues
+                            logger.warning(
+                                f"Egress completed but file_results empty - "
+                                f"egress_id={egress_info.egress_id}, "
+                                f"room_name={egress_info.room_name}, "
+                                f"error={egress_info.error or 'None'}, "
+                                f"stream_results={egress_info.stream_results}, "
+                                f"segment_results={egress_info.segment_results}, "
+                                f"waiting up to {file_results_timeout}s for upload"
                             )
 
                         time_since_complete = current_time - complete_time
