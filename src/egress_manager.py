@@ -89,14 +89,14 @@ class EgressManager:
             region=self.config.aws_region,
         )
 
-    async def start_dual_channel_recording(self, room_name: str) -> str | None:
-        """Start dual-channel audio recording for a room.
-
-        The agent's audio will be on one channel, and all other participants
-        (users) will be on the other channel.
+    async def start_dual_channel_recording(
+        self, room_name: str, session_id: str | None = None
+    ) -> str | None:
+        """Start audio recording for a room.
 
         Args:
             room_name: Name of the LiveKit room to record
+            session_id: Unique session identifier for matching audio/transcript files
 
         Returns:
             Egress ID if started successfully, None on failure
@@ -111,10 +111,14 @@ class EgressManager:
             s3_upload = self._create_s3_upload()
 
             # Build the filepath with prefix
+            # Use session_id if provided for matching with transcript, otherwise use LiveKit's {time} placeholder
             filepath_prefix = (
                 f"{self.config.s3_prefix}/audio" if self.config.s3_prefix else "audio"
             )
-            filepath = f"{filepath_prefix}/{{room_name}}-{{time}}.ogg"
+            if session_id:
+                filepath = f"{filepath_prefix}/{room_name}-{session_id}.ogg"
+            else:
+                filepath = f"{filepath_prefix}/{{room_name}}-{{time}}.ogg"
 
             file_output = egress_proto.EncodedFileOutput(
                 filepath=filepath,

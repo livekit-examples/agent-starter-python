@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 from livekit import rtc
@@ -6,6 +7,7 @@ from livekit.agents import (
     Agent,
     AgentServer,
     AgentSession,
+    AutoSubscribe,
     ConversationItemAddedEvent,
     JobContext,
     JobProcess,
@@ -73,9 +75,13 @@ async def my_agent(ctx: JobContext):
     }
 
     room_name = ctx.room.name
-    logger.info(f"=== Agent session handler called for room: {room_name} ===")
+    # Generate a unique session ID for matching audio and transcript files
+    session_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    logger.info(
+        f"=== Agent session handler called for room: {room_name}, session_id: {session_id} ==="
+    )
 
-    # Initialize egress manager for dual-channel audio recording
+    # Initialize egress manager for audio recording
     egress_manager = None
     try:
         logger.info("Initializing egress manager...")
@@ -99,6 +105,7 @@ async def my_agent(ctx: JobContext):
         transcript_handler = TranscriptHandler(
             room_name=room_name,
             s3_uploader=s3_uploader,
+            session_id=session_id,
         )
         logger.info("Transcript handler initialized successfully")
     except Exception as e:
@@ -148,27 +155,47 @@ async def my_agent(ctx: JobContext):
 
     # Handle session close to finalize and upload transcript
     @session.on("close")
-    async def on_session_close(_event):
+    def on_session_close(_event):
         """Finalize transcript and clean up egress when session ends."""
         logger.info(f"Session closing for room {room_name}, saving transcript...")
 
-        # Upload transcript to S3
-        if transcript_handler is not None:
-            try:
-                success = await transcript_handler.finalize_and_upload()
-                if success:
-                    logger.info(f"Transcript saved for room {room_name}")
-                else:
-                    logger.error(f"Failed to save transcript for room {room_name}")
-            except Exception as e:
-                logger.error(f"Error saving transcript: {e}")
+        async def cleanup():
+            # Stop egress recording - this triggers S3 upload of the audio file
+            if egress_manager is not None:
+                try:
+                    logger.info("Stopping egress recording...")
+                    stopped = await egress_manager.stop_recording()
+                    if stopped:
+                        logger.info(
+                            f"Egress recording stopped for room {room_name}, "
+                            f"audio uploaded to s3://{S3_BUCKET}/{S3_PREFIX}/"
+                        )
+                    else:
+                        logger.warning(
+                            f"Failed to stop egress recording for room {room_name}"
+                        )
+                except Exception as e:
+                    logger.error(f"Error stopping egress recording: {e}")
 
-        # Clean up egress manager resources
-        if egress_manager is not None:
-            try:
-                await egress_manager.close()
-            except Exception as e:
-                logger.error(f"Error closing egress manager: {e}")
+            # Upload transcript to S3
+            if transcript_handler is not None:
+                try:
+                    success = await transcript_handler.finalize_and_upload()
+                    if success:
+                        logger.info(f"Transcript saved for room {room_name}")
+                    else:
+                        logger.error(f"Failed to save transcript for room {room_name}")
+                except Exception as e:
+                    logger.error(f"Error saving transcript: {e}")
+
+            # Clean up egress manager API client
+            if egress_manager is not None:
+                try:
+                    await egress_manager.close()
+                except Exception as e:
+                    logger.error(f"Error closing egress manager: {e}")
+
+        asyncio.create_task(cleanup())  # noqa: RUF006
 
     logger.info("Event handlers registered")
 
@@ -196,6 +223,8 @@ async def my_agent(ctx: JobContext):
         agent=Assistant(),
         room=ctx.room,
         room_options=room_io.RoomOptions(
+            # Audio only - disable video input
+            video_input=False,
             audio_input=room_io.AudioInputOptions(
                 noise_cancellation=lambda params: noise_cancellation.BVCTelephony()
                 if params.participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
@@ -205,29 +234,46 @@ async def my_agent(ctx: JobContext):
     )
     logger.info("Session started successfully")
 
-    # Join the room and connect to the user
+    # Join the room and connect to the user (audio only, no video)
     logger.info("Connecting to room...")
-    await ctx.connect()
+    await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
     logger.info("Connected to room successfully")
 
     # Greet the user
     await session.say("Hello, how can I assist you?")
 
-    # Start dual-channel audio recording via egress (non-blocking, after room is active)
+    # Start audio recording via egress (non-blocking, after room is active)
+    # NOTE: Egress only works in 'dev' mode with a real LiveKit server, not in 'console' mode
     async def start_egress_background():
         """Start egress recording in background so it doesn't block the agent."""
         if egress_manager is None:
             logger.warning("Egress manager not initialized, skipping recording")
             return
+
+        # Check if this is a mock room (console mode)
+        if room_name == "mock_room" or room_name.startswith("FAKE_"):
+            logger.warning(
+                "Skipping egress recording - console mode uses a mock room. "
+                "Run with 'dev' mode to enable audio recording."
+            )
+            return
+
         try:
-            logger.info("Starting egress recording in background...")
-            egress_id = await egress_manager.start_dual_channel_recording(room_name)
+            logger.info(
+                f"Starting egress recording for room {room_name}, session_id={session_id}..."
+            )
+            egress_id = await egress_manager.start_dual_channel_recording(
+                room_name, session_id
+            )
             if egress_id:
-                logger.info(f"Started dual-channel recording for room {room_name}")
+                logger.info(
+                    f"Egress recording started for room {room_name}, "
+                    f"egress_id={egress_id}, session_id={session_id}"
+                )
             else:
                 logger.warning(
                     f"Failed to start egress recording for room {room_name}, "
-                    "continuing without recording"
+                    "continuing without recording. Check AWS credentials and LiveKit egress config."
                 )
         except Exception as e:
             logger.error(f"Error starting egress recording: {e}")

@@ -117,18 +117,28 @@ class S3Uploader:
 class TranscriptHandler:
     """Handles capturing and storing conversation transcripts."""
 
-    def __init__(self, room_name: str, s3_uploader: S3UploaderProtocol | None = None):
+    def __init__(
+        self,
+        room_name: str,
+        s3_uploader: S3UploaderProtocol | None = None,
+        session_id: str | None = None,
+    ):
         """Initialize the transcript handler.
 
         Args:
             room_name: Name of the LiveKit room
             s3_uploader: S3 uploader instance for storing transcripts
+            session_id: Unique session identifier for matching audio/transcript files
         """
         self.transcript = TranscriptData(
             room_name=room_name,
             session_start=datetime.now(timezone.utc).isoformat(),
         )
         self.s3_uploader = s3_uploader
+        # Use provided session_id or generate one
+        self.session_id = session_id or datetime.now(timezone.utc).strftime(
+            "%Y%m%d-%H%M%S"
+        )
 
     def add_user_transcript(self, text: str, is_final: bool = True) -> None:
         """Add a user speech transcript entry.
@@ -180,9 +190,8 @@ class TranscriptHandler:
             logger.warning("No S3 uploader configured, transcript not saved")
             return True
 
-        # Generate filename based on room name and timestamp
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-        key = f"transcripts/{self.transcript.room_name}-{timestamp}.json"
+        # Use session_id for filename to match audio recording
+        key = f"transcripts/{self.transcript.room_name}-{self.session_id}.json"
 
         return self.s3_uploader.upload_transcript(self.transcript, key)
 

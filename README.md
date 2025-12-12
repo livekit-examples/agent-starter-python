@@ -25,19 +25,23 @@ This starter app is compatible with any [custom web/mobile frontend](https://doc
 
 This project includes built-in support for:
 
-- **Dual-channel audio recording** via LiveKit Egress (agent on one channel, user on the other)
+- **Audio recording** via LiveKit Egress (all participants mixed, or dual-channel with agent on one channel and user on the other)
 - **Real-time transcript capture** from STT output, saved as JSON
+
+> **Note:** Audio recording via Egress only works in `dev` or `start` mode (connected to LiveKit Cloud). The `console` mode uses a mock room for local testing and cannot record audio. Transcripts are saved in all modes.
 
 ### S3 Output Structure
 
-Recordings and transcripts are saved to S3:
+Recordings and transcripts are saved to S3 with matching session IDs for easy correlation:
 
 ```
 s3://audivi-audio-recordings/livekit-demos/
-  ├── audio/{room_name}-{time}.ogg           # Dual-channel OGG audio
-  ├── audio/{room_name}-{time}.ogg.json      # Egress manifest
-  └── transcripts/{room_name}-{timestamp}.json  # Conversation transcript
+  ├── audio/{room_name}-{session_id}.ogg           # Audio recording (OGG format)
+  ├── audio/{room_name}-{session_id}.ogg.json      # Egress manifest
+  └── transcripts/{room_name}-{session_id}.json    # Conversation transcript
 ```
+
+The `{session_id}` is a timestamp (`YYYYMMDD-HHMMSS`) generated when the session starts, making it easy to match audio recordings with their corresponding transcripts.
 
 ### AWS Configuration
 
@@ -54,6 +58,21 @@ To change the S3 bucket or prefix, modify the constants in `src/agent.py`:
 ```python
 S3_BUCKET = "audivi-audio-recordings"
 S3_PREFIX = "livekit-demos"
+```
+
+### Dual-Channel Audio
+
+To enable dual-channel recording (agent audio on left channel, user audio on right channel), edit `src/egress_manager.py` and add the `audio_mixing` parameter:
+
+```python
+info = await self.livekit_api.egress.start_room_composite_egress(
+    egress_proto.RoomCompositeEgressRequest(
+        room_name=room_name,
+        audio_only=True,
+        audio_mixing=egress_proto.AudioMixing.DUAL_CHANNEL_AGENT,  # Add this line
+        file_outputs=[file_output],
+    )
+)
 ```
 
 ## Coding agents and MCP
@@ -123,11 +142,15 @@ Next, run this command to speak to your agent directly in your terminal:
 uv run python src/agent.py console
 ```
 
+> **Note:** Console mode is for local testing only. Audio recording is disabled (transcripts still work).
+
 To run the agent for use with a frontend or telephony, use the `dev` command:
 
 ```console
 uv run python src/agent.py dev
 ```
+
+> This mode connects to LiveKit Cloud and enables full audio recording to S3.
 
 In production, use the `start` command:
 
