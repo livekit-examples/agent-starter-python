@@ -177,11 +177,19 @@ async def my_agent(ctx: JobContext):
                 file_info = await audio_recorder.stop_recording()
                 if file_info:
                     logger.info(
-                        f"Audio recording saved for room {room_name}: "
+                        f"User audio recording saved for room {room_name}: "
                         f"location={file_info.location}, "
                         f"filename={file_info.filename}, "
                         f"size={file_info.size} bytes"
                     )
+                    # Log agent file if available (dual-track recording)
+                    if file_info.agent_location:
+                        logger.info(
+                            f"Agent audio recording saved for room {room_name}: "
+                            f"location={file_info.agent_location}, "
+                            f"filename={file_info.agent_filename}, "
+                            f"size={file_info.agent_size} bytes"
+                        )
                 else:
                     logger.warning(
                         f"No audio file info returned for room {room_name} "
