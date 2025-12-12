@@ -11,6 +11,8 @@ The starter project includes:
 - A simple voice AI assistant, ready for extension and customization
 - A voice AI pipeline with [models](https://docs.livekit.io/agents/models) from OpenAI, Cartesia, and AssemblyAI served through LiveKit Cloud
   - Easily integrate your preferred [LLM](https://docs.livekit.io/agents/models/llm/), [STT](https://docs.livekit.io/agents/models/stt/), and [TTS](https://docs.livekit.io/agents/models/tts/) instead, or swap to a realtime model like the [OpenAI Realtime API](https://docs.livekit.io/agents/models/realtime/openai)
+- **Dual-channel audio recording** to S3 via [LiveKit Egress](https://docs.livekit.io/home/egress/overview/) (agent on one channel, user on the other)
+- **Real-time transcript capture** saved to S3 as JSON
 - Eval suite based on the LiveKit Agents [testing & evaluation framework](https://docs.livekit.io/agents/build/testing/)
 - [LiveKit Turn Detector](https://docs.livekit.io/agents/build/turns/turn-detector/) for contextually-aware speaker detection, with multilingual support
 - [Background voice cancellation](https://docs.livekit.io/home/cloud/noise-cancellation/)
@@ -18,6 +20,41 @@ The starter project includes:
 - A Dockerfile ready for [production deployment](https://docs.livekit.io/agents/ops/deployment/)
 
 This starter app is compatible with any [custom web/mobile frontend](https://docs.livekit.io/agents/start/frontend/) or [SIP-based telephony](https://docs.livekit.io/agents/start/telephony/).
+
+## Recording & Transcription
+
+This project includes built-in support for:
+
+- **Dual-channel audio recording** via LiveKit Egress (agent on one channel, user on the other)
+- **Real-time transcript capture** from STT output, saved as JSON
+
+### S3 Output Structure
+
+Recordings and transcripts are saved to S3:
+
+```
+s3://audivi-audio-recordings/livekit-demos/
+  ├── audio/{room_name}-{time}.ogg           # Dual-channel OGG audio
+  ├── audio/{room_name}-{time}.ogg.json      # Egress manifest
+  └── transcripts/{room_name}-{timestamp}.json  # Conversation transcript
+```
+
+### AWS Configuration
+
+Add these environment variables to your `.env.local`:
+
+```bash
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=us-east-1
+```
+
+To change the S3 bucket or prefix, modify the constants in `src/agent.py`:
+
+```python
+S3_BUCKET = "audivi-audio-recordings"
+S3_PREFIX = "livekit-demos"
+```
 
 ## Coding agents and MCP
 
@@ -61,6 +98,9 @@ Sign up for [LiveKit Cloud](https://cloud.livekit.io/) then set up the environme
 - `LIVEKIT_URL`
 - `LIVEKIT_API_KEY`
 - `LIVEKIT_API_SECRET`
+- `AWS_ACCESS_KEY_ID` (for recording/transcripts)
+- `AWS_SECRET_ACCESS_KEY` (for recording/transcripts)
+- `AWS_REGION` (for recording/transcripts, defaults to `us-east-1`)
 
 You can load the LiveKit environment automatically using the [LiveKit CLI](https://docs.livekit.io/home/cli/cli-setup):
 

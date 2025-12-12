@@ -1,11 +1,10 @@
-import logging
-
 from dotenv import load_dotenv
 from livekit import rtc
 from livekit.agents import (
     Agent,
     AgentServer,
     AgentSession,
+    ConversationItemAddedEvent,
     JobContext,
     JobProcess,
     cli,
@@ -14,10 +13,16 @@ from livekit.agents import (
 )
 from livekit.plugins import noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from loguru import logger
 
-logger = logging.getLogger("agent")
+from egress_manager import EgressConfig, EgressManager
+from transcript_handler import S3Uploader, TranscriptHandler
 
 load_dotenv(".env.local")
+
+# S3 bucket configuration for recordings and transcripts
+S3_BUCKET = "audivi-audio-recordings"
+S3_PREFIX = "livekit-demos"
 
 
 class Assistant(Agent):
@@ -65,6 +70,25 @@ async def my_agent(ctx: JobContext):
         "room": ctx.room.name,
     }
 
+    room_name = ctx.room.name
+
+    # Initialize egress manager for dual-channel audio recording
+    egress_config = EgressConfig(
+        s3_bucket=S3_BUCKET,
+        s3_prefix=S3_PREFIX,
+    )
+    egress_manager = EgressManager(egress_config)
+
+    # Initialize transcript handler for saving STT output
+    s3_uploader = S3Uploader(
+        bucket=S3_BUCKET,
+        prefix=S3_PREFIX,
+    )
+    transcript_handler = TranscriptHandler(
+        room_name=room_name,
+        s3_uploader=s3_uploader,
+    )
+
     # Set up a voice AI pipeline using OpenAI, Cartesia, AssemblyAI, and the LiveKit turn detector
     session = AgentSession(
         # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
@@ -87,6 +111,36 @@ async def my_agent(ctx: JobContext):
         preemptive_generation=True,
     )
 
+    # Subscribe to conversation events to capture transcripts
+    @session.on("conversation_item_added")
+    def on_conversation_item_added(event: ConversationItemAddedEvent):
+        """Capture user and agent transcripts from conversation events."""
+        item = event.item
+        text = item.text_content
+        if not text:
+            return
+
+        if item.role == "user":
+            transcript_handler.add_user_transcript(text, is_final=True)
+        elif item.role == "assistant":
+            transcript_handler.add_agent_transcript(text, is_final=True)
+
+    # Handle session close to finalize and upload transcript
+    @session.on("close")
+    async def on_session_close(_event):
+        """Finalize transcript and clean up egress when session ends."""
+        logger.info(f"Session closing for room {room_name}, saving transcript...")
+
+        # Upload transcript to S3
+        success = await transcript_handler.finalize_and_upload()
+        if success:
+            logger.info(f"Transcript saved for room {room_name}")
+        else:
+            logger.error(f"Failed to save transcript for room {room_name}")
+
+        # Clean up egress manager resources
+        await egress_manager.close()
+
     # To use a realtime model instead of a voice pipeline, use the following session setup instead.
     # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
     # 1. Install livekit-agents[openai]
@@ -104,6 +158,16 @@ async def my_agent(ctx: JobContext):
     # )
     # # Start the avatar and wait for it to join
     # await avatar.start(session, room=ctx.room)
+
+    # Start dual-channel audio recording via egress
+    egress_id = await egress_manager.start_dual_channel_recording(room_name)
+    if egress_id:
+        logger.info(f"Started dual-channel recording for room {room_name}")
+    else:
+        logger.warning(
+            f"Failed to start egress recording for room {room_name}, "
+            "continuing without recording"
+        )
 
     # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(

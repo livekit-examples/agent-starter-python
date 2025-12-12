@@ -1,4 +1,5 @@
 ---
+description: recording audio and transcripts on livekit using Egress APIs
 alwaysApply: false
 ---
 # LiveKit Egress - Python Audio Recording Guide
