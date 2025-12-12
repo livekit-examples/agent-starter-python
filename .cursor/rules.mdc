@@ -2,6 +2,13 @@
 alwaysApply: true
 description: "Project-wide standards for package management, dependencies, testing, and infrastructure"
 ---
+## For Logging In Python, always use loguru
+----
+## For logging in Typescript, use Winston https://github.com/winstonjs/winston
+
+### To use Winston for logging in a TypeScript project, you need to install both the library and its TypeScript definitions, then create a logger instance with configured formats and transports
+
+---
 ## Package & Dependency Management
 
 ### Python Projects

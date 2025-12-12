@@ -121,13 +121,13 @@ class EgressManager:
                 s3=s3_upload,
             )
 
-            # Start room composite egress with dual-channel audio
-            # DUAL_CHANNEL_AGENT puts agent audio on one channel, all other participants on the other
+            # Start room composite egress with audio recording
+            # Using DEFAULT_MIXING (all users mixed together) for now
+            # To enable dual-channel: audio_mixing=egress_proto.AudioMixing.DUAL_CHANNEL_AGENT
             info = await self.livekit_api.egress.start_room_composite_egress(
                 egress_proto.RoomCompositeEgressRequest(
                     room_name=room_name,
                     audio_only=True,
-                    audio_mixing=egress_proto.AudioMixing.DUAL_CHANNEL_AGENT,
                     file_outputs=[file_output],
                 )
             )

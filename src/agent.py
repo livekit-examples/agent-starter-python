@@ -1,3 +1,5 @@
+import asyncio
+
 from dotenv import load_dotenv
 from livekit import rtc
 from livekit.agents import (
@@ -71,25 +73,39 @@ async def my_agent(ctx: JobContext):
     }
 
     room_name = ctx.room.name
+    logger.info(f"=== Agent session handler called for room: {room_name} ===")
 
     # Initialize egress manager for dual-channel audio recording
-    egress_config = EgressConfig(
-        s3_bucket=S3_BUCKET,
-        s3_prefix=S3_PREFIX,
-    )
-    egress_manager = EgressManager(egress_config)
+    egress_manager = None
+    try:
+        logger.info("Initializing egress manager...")
+        egress_config = EgressConfig(
+            s3_bucket=S3_BUCKET,
+            s3_prefix=S3_PREFIX,
+        )
+        egress_manager = EgressManager(egress_config)
+        logger.info("Egress manager initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize egress manager: {e}")
 
     # Initialize transcript handler for saving STT output
-    s3_uploader = S3Uploader(
-        bucket=S3_BUCKET,
-        prefix=S3_PREFIX,
-    )
-    transcript_handler = TranscriptHandler(
-        room_name=room_name,
-        s3_uploader=s3_uploader,
-    )
+    transcript_handler = None
+    try:
+        logger.info("Initializing transcript handler...")
+        s3_uploader = S3Uploader(
+            bucket=S3_BUCKET,
+            prefix=S3_PREFIX,
+        )
+        transcript_handler = TranscriptHandler(
+            room_name=room_name,
+            s3_uploader=s3_uploader,
+        )
+        logger.info("Transcript handler initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize transcript handler: {e}")
 
     # Set up a voice AI pipeline using OpenAI, Cartesia, AssemblyAI, and the LiveKit turn detector
+    logger.info("Creating AgentSession...")
     session = AgentSession(
         # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
         # See all available models at https://docs.livekit.io/agents/models/stt/
@@ -110,11 +126,16 @@ async def my_agent(ctx: JobContext):
         # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
         preemptive_generation=True,
     )
+    logger.info("AgentSession created successfully")
 
     # Subscribe to conversation events to capture transcripts
+    logger.info("Registering event handlers...")
+
     @session.on("conversation_item_added")
     def on_conversation_item_added(event: ConversationItemAddedEvent):
         """Capture user and agent transcripts from conversation events."""
+        if transcript_handler is None:
+            return
         item = event.item
         text = item.text_content
         if not text:
@@ -132,14 +153,24 @@ async def my_agent(ctx: JobContext):
         logger.info(f"Session closing for room {room_name}, saving transcript...")
 
         # Upload transcript to S3
-        success = await transcript_handler.finalize_and_upload()
-        if success:
-            logger.info(f"Transcript saved for room {room_name}")
-        else:
-            logger.error(f"Failed to save transcript for room {room_name}")
+        if transcript_handler is not None:
+            try:
+                success = await transcript_handler.finalize_and_upload()
+                if success:
+                    logger.info(f"Transcript saved for room {room_name}")
+                else:
+                    logger.error(f"Failed to save transcript for room {room_name}")
+            except Exception as e:
+                logger.error(f"Error saving transcript: {e}")
 
         # Clean up egress manager resources
-        await egress_manager.close()
+        if egress_manager is not None:
+            try:
+                await egress_manager.close()
+            except Exception as e:
+                logger.error(f"Error closing egress manager: {e}")
+
+    logger.info("Event handlers registered")
 
     # To use a realtime model instead of a voice pipeline, use the following session setup instead.
     # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
@@ -159,17 +190,8 @@ async def my_agent(ctx: JobContext):
     # # Start the avatar and wait for it to join
     # await avatar.start(session, room=ctx.room)
 
-    # Start dual-channel audio recording via egress
-    egress_id = await egress_manager.start_dual_channel_recording(room_name)
-    if egress_id:
-        logger.info(f"Started dual-channel recording for room {room_name}")
-    else:
-        logger.warning(
-            f"Failed to start egress recording for room {room_name}, "
-            "continuing without recording"
-        )
-
     # Start the session, which initializes the voice pipeline and warms up the models
+    logger.info("Starting session...")
     await session.start(
         agent=Assistant(),
         room=ctx.room,
@@ -181,9 +203,39 @@ async def my_agent(ctx: JobContext):
             ),
         ),
     )
+    logger.info("Session started successfully")
 
     # Join the room and connect to the user
+    logger.info("Connecting to room...")
     await ctx.connect()
+    logger.info("Connected to room successfully")
+
+    # Greet the user
+    await session.say("Hello, how can I assist you?")
+
+    # Start dual-channel audio recording via egress (non-blocking, after room is active)
+    async def start_egress_background():
+        """Start egress recording in background so it doesn't block the agent."""
+        if egress_manager is None:
+            logger.warning("Egress manager not initialized, skipping recording")
+            return
+        try:
+            logger.info("Starting egress recording in background...")
+            egress_id = await egress_manager.start_dual_channel_recording(room_name)
+            if egress_id:
+                logger.info(f"Started dual-channel recording for room {room_name}")
+            else:
+                logger.warning(
+                    f"Failed to start egress recording for room {room_name}, "
+                    "continuing without recording"
+                )
+        except Exception as e:
+            logger.error(f"Error starting egress recording: {e}")
+
+    # Run egress start in background task so it doesn't block
+    _egress_task = asyncio.create_task(start_egress_background())  # noqa: RUF006
+
+    logger.info(f"=== Agent setup complete for room: {room_name} ===")
 
 
 if __name__ == "__main__":
