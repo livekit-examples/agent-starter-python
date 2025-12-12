@@ -160,19 +160,22 @@ async def my_agent(ctx: JobContext):
         logger.info(f"Session closing for room {room_name}, saving transcript...")
 
         async def cleanup():
-            # Stop egress recording - this triggers S3 upload of the audio file
+            # Stop egress recording and wait for S3 upload to complete
             if egress_manager is not None:
                 try:
-                    logger.info("Stopping egress recording...")
-                    stopped = await egress_manager.stop_recording()
-                    if stopped:
+                    logger.info("Stopping egress recording and waiting for upload...")
+                    file_info = await egress_manager.stop_recording()
+                    if file_info:
                         logger.info(
-                            f"Egress recording stopped for room {room_name}, "
-                            f"audio uploaded to s3://{S3_BUCKET}/{S3_PREFIX}/"
+                            f"Audio recording uploaded for room {room_name}: "
+                            f"location={file_info.location}, "
+                            f"filename={file_info.filename}, "
+                            f"size={file_info.size} bytes"
                         )
                     else:
                         logger.warning(
-                            f"Failed to stop egress recording for room {room_name}"
+                            f"No audio file info returned for room {room_name} "
+                            "(recording may have failed or no audio was captured)"
                         )
                 except Exception as e:
                     logger.error(f"Error stopping egress recording: {e}")

@@ -3,8 +3,14 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from livekit.protocol import egress as egress_proto
 
-from egress_manager import EgressConfig, EgressManager, create_default_egress_manager
+from egress_manager import (
+    EgressConfig,
+    EgressFileInfo,
+    EgressManager,
+    create_default_egress_manager,
+)
 
 
 class TestEgressConfig:
@@ -153,16 +159,35 @@ class TestEgressManager:
 
     @pytest.mark.asyncio
     async def test_stop_recording_success(self):
-        """Test successful recording stop."""
+        """Test successful recording stop with file info."""
         config = EgressConfig(
             s3_bucket="test-bucket",
         )
         manager = EgressManager(config)
         manager._egress_id = "EG_TEST123456"
 
+        # Mock file result
+        mock_file_result = MagicMock()
+        mock_file_result.filename = "test-room-20251212-120000.ogg"
+        mock_file_result.location = (
+            "s3://test-bucket/audio/test-room-20251212-120000.ogg"
+        )
+        mock_file_result.duration = 60000000000  # 60 seconds in nanoseconds
+        mock_file_result.size = 1024000
+
+        # Mock egress info with COMPLETE status
+        mock_egress_info = MagicMock()
+        mock_egress_info.status = egress_proto.EgressStatus.EGRESS_COMPLETE
+        mock_egress_info.file_results = [mock_file_result]
+
+        # Mock list response
+        mock_list_response = MagicMock()
+        mock_list_response.items = [mock_egress_info]
+
         # Mock the LiveKit API
         mock_egress_service = AsyncMock()
         mock_egress_service.stop_egress = AsyncMock()
+        mock_egress_service.list_egress = AsyncMock(return_value=mock_list_response)
 
         mock_api = MagicMock()
         mock_api.egress = mock_egress_service
@@ -171,7 +196,12 @@ class TestEgressManager:
 
         result = await manager.stop_recording()
 
-        assert result is True
+        assert result is not None
+        assert isinstance(result, EgressFileInfo)
+        assert result.filename == "test-room-20251212-120000.ogg"
+        assert result.location == "s3://test-bucket/audio/test-room-20251212-120000.ogg"
+        assert result.duration == 60000000000
+        assert result.size == 1024000
         assert manager.egress_id is None
         mock_egress_service.stop_egress.assert_called_once()
 
@@ -185,7 +215,7 @@ class TestEgressManager:
 
         result = await manager.stop_recording()
 
-        assert result is True
+        assert result is None  # No file info when no egress was active
 
     @pytest.mark.asyncio
     async def test_stop_recording_failure(self):
@@ -209,7 +239,7 @@ class TestEgressManager:
 
         result = await manager.stop_recording()
 
-        assert result is False
+        assert result is None  # Returns None on failure
 
     @pytest.mark.asyncio
     async def test_close(self):
