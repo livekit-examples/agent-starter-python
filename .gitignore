@@ -10,3 +10,9 @@ KMS
 *.egg-info
 .pytest_cache
 .ruff_cache
+
+**.wav
+**.ogg
+**.mp3
+**.m4a
+**.flac
