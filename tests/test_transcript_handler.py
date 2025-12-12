@@ -1,10 +1,12 @@
 """Tests for the transcript handler module."""
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 from livekit_recording import (
+    LocalTranscriptStorage,
     S3Uploader,
     TranscriptData,
     TranscriptEntry,
@@ -85,7 +87,21 @@ class TestTranscriptHandler:
         handler = TranscriptHandler(room_name="test-room")
         assert handler.transcript.room_name == "test-room"
         assert handler.transcript.session_start is not None
-        assert handler.s3_uploader is None
+        assert handler.storage is None
+
+    def test_init_with_storage(self):
+        """Test initializing transcript handler with storage."""
+        mock_storage = MagicMock()
+        handler = TranscriptHandler(room_name="test-room", storage=mock_storage)
+        assert handler.storage is mock_storage
+
+    def test_init_with_s3_uploader_backward_compat(self):
+        """Test initializing with deprecated s3_uploader parameter."""
+        mock_uploader = MagicMock()
+        handler = TranscriptHandler(room_name="test-room", s3_uploader=mock_uploader)
+        # Both storage and s3_uploader should reference the same object
+        assert handler.storage is mock_uploader
+        assert handler.s3_uploader is mock_uploader
 
     def test_add_user_transcript(self):
         """Test adding user transcript entries."""
@@ -149,8 +165,19 @@ class TestTranscriptHandler:
         assert "Agent: Hi there!" in text
 
     @pytest.mark.asyncio
-    async def test_finalize_and_upload_no_uploader(self):
-        """Test finalize without an uploader configured."""
+    async def test_finalize_and_save_no_storage(self):
+        """Test finalize without storage configured."""
+        handler = TranscriptHandler(room_name="test-room")
+        handler.add_user_transcript("Test message")
+
+        result = await handler.finalize_and_save()
+
+        assert result is True
+        assert handler.transcript.session_end is not None
+
+    @pytest.mark.asyncio
+    async def test_finalize_and_upload_no_storage(self):
+        """Test finalize_and_upload (backward compat) without storage configured."""
         handler = TranscriptHandler(room_name="test-room")
         handler.add_user_transcript("Test message")
 
@@ -160,21 +187,21 @@ class TestTranscriptHandler:
         assert handler.transcript.session_end is not None
 
     @pytest.mark.asyncio
-    async def test_finalize_and_upload_with_mock_uploader(self):
-        """Test finalize with a mock uploader."""
-        mock_uploader = MagicMock()
-        mock_uploader.upload_transcript.return_value = True
+    async def test_finalize_and_save_with_mock_storage(self):
+        """Test finalize with mock storage."""
+        mock_storage = MagicMock()
+        mock_storage.save_transcript.return_value = True
 
-        handler = TranscriptHandler(room_name="test-room", s3_uploader=mock_uploader)
+        handler = TranscriptHandler(room_name="test-room", storage=mock_storage)
         handler.add_user_transcript("Test message")
 
-        result = await handler.finalize_and_upload()
+        result = await handler.finalize_and_save()
 
         assert result is True
-        mock_uploader.upload_transcript.assert_called_once()
+        mock_storage.save_transcript.assert_called_once()
 
         # Verify the transcript was passed correctly
-        call_args = mock_uploader.upload_transcript.call_args
+        call_args = mock_storage.save_transcript.call_args
         transcript_arg = call_args[0][0]
         assert transcript_arg.room_name == "test-room"
         assert len(transcript_arg.entries) == 1
@@ -183,6 +210,149 @@ class TestTranscriptHandler:
         key_arg = call_args[0][1]
         assert key_arg.startswith("transcripts/test-room-")
         assert key_arg.endswith(".json")
+
+    @pytest.mark.asyncio
+    async def test_finalize_and_upload_with_mock_uploader(self):
+        """Test finalize with a mock uploader (backward compatibility)."""
+        mock_uploader = MagicMock()
+        mock_uploader.save_transcript.return_value = True
+
+        handler = TranscriptHandler(room_name="test-room", s3_uploader=mock_uploader)
+        handler.add_user_transcript("Test message")
+
+        result = await handler.finalize_and_upload()
+
+        assert result is True
+        mock_uploader.save_transcript.assert_called_once()
+
+        # Verify the transcript was passed correctly
+        call_args = mock_uploader.save_transcript.call_args
+        transcript_arg = call_args[0][0]
+        assert transcript_arg.room_name == "test-room"
+        assert len(transcript_arg.entries) == 1
+
+        # Verify the key format
+        key_arg = call_args[0][1]
+        assert key_arg.startswith("transcripts/test-room-")
+        assert key_arg.endswith(".json")
+
+
+class TestLocalTranscriptStorage:
+    """Tests for LocalTranscriptStorage class."""
+
+    def test_init(self, tmp_path):
+        """Test initializing local transcript storage."""
+        storage = LocalTranscriptStorage(output_dir=tmp_path)
+        assert storage.output_dir == tmp_path
+
+    def test_init_default_dir(self):
+        """Test initializing with default output directory."""
+        storage = LocalTranscriptStorage()
+        assert storage.output_dir == Path("temp")
+
+    def test_save_transcript_creates_directory(self, tmp_path):
+        """Test that save_transcript creates the transcripts directory."""
+        storage = LocalTranscriptStorage(output_dir=tmp_path)
+        transcript = TranscriptData(
+            room_name="test-room",
+            session_start="2024-01-01T00:00:00+00:00",
+        )
+
+        result = storage.save_transcript(transcript, "transcripts/test.json")
+
+        assert result is True
+        assert (tmp_path / "transcripts").exists()
+        assert (tmp_path / "transcripts" / "test.json").exists()
+
+    def test_save_transcript_content(self, tmp_path):
+        """Test that saved transcript has correct JSON content."""
+        storage = LocalTranscriptStorage(output_dir=tmp_path)
+        transcript = TranscriptData(
+            room_name="test-room",
+            session_start="2024-01-01T00:00:00+00:00",
+            session_end="2024-01-01T00:05:00+00:00",
+        )
+        transcript.entries.append(
+            TranscriptEntry(
+                timestamp="2024-01-01T00:01:00+00:00",
+                speaker="user",
+                text="Hello",
+                is_final=True,
+            )
+        )
+        transcript.entries.append(
+            TranscriptEntry(
+                timestamp="2024-01-01T00:02:00+00:00",
+                speaker="agent",
+                text="Hi there!",
+                is_final=True,
+            )
+        )
+
+        result = storage.save_transcript(transcript, "transcripts/test.json")
+
+        assert result is True
+
+        # Read and verify the saved content
+        saved_path = tmp_path / "transcripts" / "test.json"
+        saved_content = json.loads(saved_path.read_text(encoding="utf-8"))
+
+        assert saved_content["room_name"] == "test-room"
+        assert saved_content["session_start"] == "2024-01-01T00:00:00+00:00"
+        assert saved_content["session_end"] == "2024-01-01T00:05:00+00:00"
+        assert len(saved_content["entries"]) == 2
+        assert saved_content["entries"][0]["speaker"] == "user"
+        assert saved_content["entries"][0]["text"] == "Hello"
+        assert saved_content["entries"][1]["speaker"] == "agent"
+        assert saved_content["entries"][1]["text"] == "Hi there!"
+
+    def test_save_transcript_nested_path(self, tmp_path):
+        """Test saving transcript with nested path."""
+        storage = LocalTranscriptStorage(output_dir=tmp_path)
+        transcript = TranscriptData(
+            room_name="test-room",
+            session_start="2024-01-01T00:00:00+00:00",
+        )
+
+        result = storage.save_transcript(
+            transcript, "transcripts/2024/01/test-room-session.json"
+        )
+
+        assert result is True
+        assert (
+            tmp_path / "transcripts" / "2024" / "01" / "test-room-session.json"
+        ).exists()
+
+    def test_upload_transcript_alias(self, tmp_path):
+        """Test upload_transcript is an alias for save_transcript."""
+        storage = LocalTranscriptStorage(output_dir=tmp_path)
+        transcript = TranscriptData(
+            room_name="test-room",
+            session_start="2024-01-01T00:00:00+00:00",
+        )
+
+        # Use upload_transcript (backward compat alias)
+        result = storage.upload_transcript(transcript, "transcripts/test.json")
+
+        assert result is True
+        assert (tmp_path / "transcripts" / "test.json").exists()
+
+    def test_save_transcript_handles_error(self, tmp_path):
+        """Test that save_transcript returns False on error."""
+        storage = LocalTranscriptStorage(output_dir=tmp_path)
+        transcript = TranscriptData(
+            room_name="test-room",
+            session_start="2024-01-01T00:00:00+00:00",
+        )
+
+        # Try to save to an invalid path (parent is a file, not directory)
+        # Create a file that will block directory creation
+        blocking_file = tmp_path / "transcripts"
+        blocking_file.write_text("blocking")
+
+        result = storage.save_transcript(transcript, "transcripts/subdir/test.json")
+
+        assert result is False
 
 
 class TestS3Uploader:
@@ -282,3 +452,109 @@ class TestS3Uploader:
         result = uploader.upload_transcript(transcript, "transcripts/test.json")
 
         assert result is False
+
+    @patch("livekit_recording.transcript.boto3.client")
+    def test_save_transcript_alias(self, mock_boto3_client):
+        """Test save_transcript is an alias for upload_transcript."""
+        mock_s3 = MagicMock()
+        mock_boto3_client.return_value = mock_s3
+
+        uploader = S3Uploader(
+            bucket="test-bucket",
+            prefix="test-prefix",
+            access_key="test-key",
+            secret_key="test-secret",
+        )
+
+        transcript = TranscriptData(
+            room_name="test-room",
+            session_start="2024-01-01T00:00:00+00:00",
+        )
+
+        # Use save_transcript (TranscriptStorageProtocol method)
+        result = uploader.save_transcript(transcript, "transcripts/test.json")
+
+        assert result is True
+        mock_s3.put_object.assert_called_once()
+
+
+class TestSettingsCreateTranscriptStorage:
+    """Tests for Settings.create_transcript_storage method."""
+
+    def test_create_local_storage(self, tmp_path):
+        """Test creating local transcript storage."""
+        from livekit_recording import Settings, StorageMode, StorageSettings
+
+        settings = Settings(
+            storage=StorageSettings(
+                mode=StorageMode.LOCAL, local_output_dir=str(tmp_path)
+            )
+        )
+
+        storage = settings.create_transcript_storage()
+
+        assert isinstance(storage, LocalTranscriptStorage)
+        assert storage.output_dir == tmp_path
+
+    def test_create_s3_storage(self):
+        """Test creating S3 transcript storage."""
+        from livekit_recording import (
+            AWSSettings,
+            S3Settings,
+            Settings,
+            StorageMode,
+            StorageSettings,
+        )
+
+        settings = Settings(
+            aws=AWSSettings(
+                access_key_id="test-key",
+                secret_access_key="test-secret",
+                region="us-west-2",
+            ),
+            s3=S3Settings(bucket="test-bucket", prefix="test-prefix"),
+            storage=StorageSettings(mode=StorageMode.S3),
+        )
+
+        storage = settings.create_transcript_storage()
+
+        assert isinstance(storage, S3Uploader)
+        assert storage.bucket == "test-bucket"
+        assert storage.prefix == "test-prefix"
+        assert storage.region == "us-west-2"
+
+    def test_create_s3_storage_with_override(self):
+        """Test creating S3 storage with bucket/prefix override."""
+        from livekit_recording import (
+            AWSSettings,
+            S3Settings,
+            Settings,
+            StorageMode,
+            StorageSettings,
+        )
+
+        settings = Settings(
+            aws=AWSSettings(
+                access_key_id="test-key",
+                secret_access_key="test-secret",
+            ),
+            s3=S3Settings(bucket="default-bucket", prefix="default-prefix"),
+            storage=StorageSettings(mode=StorageMode.S3),
+        )
+
+        storage = settings.create_transcript_storage(
+            bucket="override-bucket", prefix="override-prefix"
+        )
+
+        assert isinstance(storage, S3Uploader)
+        assert storage.bucket == "override-bucket"
+        assert storage.prefix == "override-prefix"
+
+    def test_create_s3_storage_missing_bucket(self):
+        """Test that missing S3 bucket raises ValueError."""
+        from livekit_recording import Settings, StorageMode, StorageSettings
+
+        settings = Settings(storage=StorageSettings(mode=StorageMode.S3))
+
+        with pytest.raises(ValueError, match="S3 bucket is required"):
+            settings.create_transcript_storage()

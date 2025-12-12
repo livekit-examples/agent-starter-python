@@ -1,10 +1,11 @@
-"""Transcript handler for capturing and storing STT output to S3."""
+"""Transcript handler for capturing and storing STT output to S3 or local files."""
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 import boto3
@@ -52,10 +53,27 @@ class TranscriptData:
         }
 
 
-class S3UploaderProtocol(Protocol):
-    """Protocol for S3 upload operations."""
+class TranscriptStorageProtocol(Protocol):
+    """Protocol for transcript storage operations.
 
-    def upload_transcript(self, transcript: TranscriptData, key: str) -> bool: ...
+    Implementations can save transcripts to various backends (local files, S3, etc.).
+    """
+
+    def save_transcript(self, transcript: TranscriptData, key: str) -> bool:
+        """Save a transcript to storage.
+
+        Args:
+            transcript: The transcript data to save
+            key: The storage key/path for the transcript
+
+        Returns:
+            True if save succeeded, False otherwise
+        """
+        ...
+
+
+# Keep S3UploaderProtocol for backward compatibility
+S3UploaderProtocol = TranscriptStorageProtocol
 
 
 class S3Uploader:
@@ -136,6 +154,63 @@ class S3Uploader:
             logger.error(f"Failed to upload transcript to S3: {e}")
             return False
 
+    def save_transcript(self, transcript: TranscriptData, key: str) -> bool:
+        """Save transcript JSON to S3 (alias for upload_transcript).
+
+        Args:
+            transcript: The transcript data to save
+            key: The S3 object key (path within bucket)
+
+        Returns:
+            True if save succeeded, False otherwise
+        """
+        return self.upload_transcript(transcript, key)
+
+
+class LocalTranscriptStorage:
+    """Handles saving transcripts to local filesystem."""
+
+    def __init__(self, output_dir: str | Path = "temp"):
+        """Initialize the local transcript storage.
+
+        Args:
+            output_dir: Directory to save transcript files (default: temp/)
+        """
+        self.output_dir = Path(output_dir)
+        logger.debug(f"LocalTranscriptStorage initialized with output_dir={output_dir}")
+
+    def save_transcript(self, transcript: TranscriptData, key: str) -> bool:
+        """Save transcript JSON to local filesystem.
+
+        Args:
+            transcript: The transcript data to save
+            key: The file path relative to output_dir (e.g., transcripts/room-session.json)
+
+        Returns:
+            True if save succeeded, False otherwise
+        """
+        # Build full path
+        output_path = self.output_dir / key
+
+        try:
+            # Create parent directories if needed
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Write JSON file
+            json_content = json.dumps(transcript.to_dict(), indent=2)
+            output_path.write_text(json_content, encoding="utf-8")
+
+            logger.info(f"Saved transcript to {output_path.absolute()}")
+            return True
+        except OSError as e:
+            logger.error(f"Failed to save transcript to local file: {e}")
+            return False
+
+    # Alias for backward compatibility
+    def upload_transcript(self, transcript: TranscriptData, key: str) -> bool:
+        """Alias for save_transcript for backward compatibility."""
+        return self.save_transcript(transcript, key)
+
 
 class TranscriptHandler:
     """Handles capturing and storing conversation transcripts."""
@@ -143,21 +218,28 @@ class TranscriptHandler:
     def __init__(
         self,
         room_name: str,
-        s3_uploader: S3UploaderProtocol | None = None,
+        storage: TranscriptStorageProtocol | None = None,
         session_id: str | None = None,
+        *,
+        # Backward compatibility alias
+        s3_uploader: TranscriptStorageProtocol | None = None,
     ):
         """Initialize the transcript handler.
 
         Args:
             room_name: Name of the LiveKit room
-            s3_uploader: S3 uploader instance for storing transcripts
+            storage: Storage instance for saving transcripts (local or S3)
             session_id: Unique session identifier for matching audio/transcript files
+            s3_uploader: Deprecated alias for storage parameter (backward compatibility)
         """
         self.transcript = TranscriptData(
             room_name=room_name,
             session_start=datetime.now(UTC).isoformat(),
         )
-        self.s3_uploader = s3_uploader
+        # Support both 'storage' and deprecated 's3_uploader' parameter
+        self.storage = storage or s3_uploader
+        # Keep s3_uploader as alias for backward compatibility
+        self.s3_uploader = self.storage
         # Use provided session_id or generate one
         self.session_id = session_id or datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
 
@@ -199,22 +281,30 @@ class TranscriptHandler:
         self.transcript.entries.append(entry)
         logger.debug(f"Agent transcript: {text}")
 
-    async def finalize_and_upload(self) -> bool:
-        """Finalize the transcript and upload to S3.
+    async def finalize_and_save(self) -> bool:
+        """Finalize the transcript and save to storage (local or S3).
 
         Returns:
-            True if upload succeeded or no uploader configured, False on failure
+            True if save succeeded or no storage configured, False on failure
         """
         self.transcript.session_end = datetime.now(UTC).isoformat()
 
-        if not self.s3_uploader:
-            logger.warning("No S3 uploader configured, transcript not saved")
+        if not self.storage:
+            logger.warning("No transcript storage configured, transcript not saved")
             return True
 
         # Use session_id for filename to match audio recording
         key = f"transcripts/{self.transcript.room_name}-{self.session_id}.json"
 
-        return self.s3_uploader.upload_transcript(self.transcript, key)
+        return self.storage.save_transcript(self.transcript, key)
+
+    async def finalize_and_upload(self) -> bool:
+        """Alias for finalize_and_save (backward compatibility).
+
+        Returns:
+            True if save succeeded or no storage configured, False on failure
+        """
+        return await self.finalize_and_save()
 
     def get_transcript_text(self) -> str:
         """Get the transcript as plain text.

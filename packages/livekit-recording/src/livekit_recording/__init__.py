@@ -22,11 +22,13 @@ from livekit_recording.settings import (
     StorageSettings,
 )
 from livekit_recording.transcript import (
+    LocalTranscriptStorage,
     S3Uploader,
     S3UploaderProtocol,
     TranscriptData,
     TranscriptEntry,
     TranscriptHandler,
+    TranscriptStorageProtocol,
 )
 
 __all__ = [
@@ -38,6 +40,7 @@ __all__ = [
     "EgressManager",
     "LiveKitSettings",
     "LocalAudioRecorder",
+    "LocalTranscriptStorage",
     "S3AudioRecorder",
     "S3Settings",
     "S3Uploader",
@@ -48,6 +51,7 @@ __all__ = [
     "TranscriptData",
     "TranscriptEntry",
     "TranscriptHandler",
+    "TranscriptStorageProtocol",
     "create_default_egress_manager",
     "create_default_s3_recorder",
 ]

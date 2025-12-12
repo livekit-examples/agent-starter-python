@@ -1,0 +1,43 @@
+{
+  "room_name": "playground-ggC8-V5BN",
+  "session_start": "2025-12-12T21:10:22.555334+00:00",
+  "session_end": "2025-12-12T21:11:46.970180+00:00",
+  "entries": [
+    {
+      "timestamp": "2025-12-12T21:10:25.345108+00:00",
+      "speaker": "agent",
+      "text": "Hello, how can I assist you?",
+      "is_final": true
+    },
+    {
+      "timestamp": "2025-12-12T21:10:29.422298+00:00",
+      "speaker": "user",
+      "text": "Yes.",
+      "is_final": true
+    },
+    {
+      "timestamp": "2025-12-12T21:10:36.456330+00:00",
+      "speaker": "user",
+      "text": "Are there any planets that Rotate in the opposite direction than the sun.",
+      "is_final": true
+    },
+    {
+      "timestamp": "2025-12-12T21:10:56.089449+00:00",
+      "speaker": "agent",
+      "text": "Yes, Venus and Uranus rotate in the opposite direction to the Sun. This is called retrograde rotation. Venus spins clockwise on its axis, while the Sun spins counterclockwise when viewed from above their north poles. Uranus is unique because it rotates on its side with an axial tilt of about 98 degrees, which makes its rotation appear retrograde as well. Interesting, right?",
+      "is_final": true
+    },
+    {
+      "timestamp": "2025-12-12T21:11:09.955625+00:00",
+      "speaker": "user",
+      "text": "How long did the roman empire last",
+      "is_final": true
+    },
+    {
+      "timestamp": "2025-12-12T21:11:30.215535+00:00",
+      "speaker": "agent",
+      "text": "The Roman Empire lasted about 500 years if you start from 27 BC when Augustus became the first emperor, until 476 AD when the Western Roman Empire fell. If you include the Eastern Roman Empire, also called the Byzantine Empire, it lasted until 1453 AD, so that\u2019s almost 1500 years in total. Quite a long run!",
+      "is_final": true
+    }
+  ]
+}

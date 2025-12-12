@@ -193,7 +193,7 @@ class LocalAudioRecorder:
                     # Recording is active and not stopping, subscribe immediately
                     _task = asyncio.create_task(
                         self._subscribe_to_track(track, "agent")
-                    )  # noqa: RUF006
+                    )
                 elif not self._stop_event:
                     # Recording not started yet, queue the track
                     self._pending_agent_tracks.append(track)

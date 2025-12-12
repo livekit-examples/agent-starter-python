@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from livekit import rtc
 
     from livekit_recording.audio_storage import AudioRecorderProtocol
+    from livekit_recording.transcript import TranscriptStorageProtocol
 
 
 class StorageMode(str, Enum):
@@ -273,6 +274,51 @@ class Settings:
                 self, bucket=s3_bucket, prefix=s3_prefix
             )
             return S3AudioRecorder(config)
+
+        else:
+            raise ValueError(f"Unknown storage mode: {self.storage.mode}")
+
+    def create_transcript_storage(
+        self,
+        bucket: str | None = None,
+        prefix: str | None = None,
+    ) -> TranscriptStorageProtocol:
+        """Create a transcript storage backend based on the current storage mode.
+
+        Args:
+            bucket: S3 bucket name (required for S3 mode, uses settings.s3.bucket if not provided)
+            prefix: S3 prefix (uses settings.s3.prefix if not provided)
+
+        Returns:
+            A TranscriptStorageProtocol implementation (LocalTranscriptStorage or S3Uploader)
+
+        Raises:
+            ValueError: If required configuration is missing for S3 mode
+        """
+        # Import here to avoid circular imports
+        from livekit_recording.transcript import LocalTranscriptStorage, S3Uploader
+
+        if self.storage.mode == StorageMode.LOCAL:
+            logger.info(
+                f"Creating LocalTranscriptStorage with output_dir={self.storage.local_output_dir}"
+            )
+            return LocalTranscriptStorage(output_dir=self.storage.local_output_dir)
+
+        elif self.storage.mode == StorageMode.S3:
+            # Use provided bucket/prefix or fall back to settings
+            s3_bucket = bucket or self.s3.bucket
+            s3_prefix = prefix if prefix is not None else self.s3.prefix
+
+            if not s3_bucket:
+                raise ValueError(
+                    "S3 bucket is required for S3 storage mode. "
+                    "Set STORAGE_MODE=local or provide bucket parameter."
+                )
+
+            logger.info(
+                f"Creating S3Uploader with bucket={s3_bucket}, prefix={s3_prefix}"
+            )
+            return S3Uploader.from_settings(self, bucket=s3_bucket, prefix=s3_prefix)
 
         else:
             raise ValueError(f"Unknown storage mode: {self.storage.mode}")

@@ -18,7 +18,6 @@ from livekit.plugins import noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from livekit_recording import (
     AudioRecorderProtocol,
-    S3Uploader,
     Settings,
     StorageMode,
     TranscriptHandler,
@@ -106,19 +105,21 @@ async def my_agent(ctx: JobContext):
     except Exception as e:
         logger.error(f"Failed to initialize audio recorder: {e}")
 
-    # Initialize transcript handler for saving STT output
+    # Initialize transcript handler for saving STT output (local or S3 based on storage mode)
     transcript_handler = None
     try:
         logger.info("Initializing transcript handler...")
-        s3_uploader = S3Uploader.from_settings(
-            settings, bucket=S3_BUCKET, prefix=S3_PREFIX
+        transcript_storage = settings.create_transcript_storage(
+            bucket=S3_BUCKET, prefix=S3_PREFIX
         )
         transcript_handler = TranscriptHandler(
             room_name=room_name,
-            s3_uploader=s3_uploader,
+            storage=transcript_storage,
             session_id=session_id,
         )
-        logger.info("Transcript handler initialized successfully")
+        logger.info(
+            f"Transcript handler initialized successfully (mode={settings.storage.mode.value})"
+        )
     except Exception as e:
         logger.error(f"Failed to initialize transcript handler: {e}")
 
