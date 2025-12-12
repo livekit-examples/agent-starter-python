@@ -1,0 +1,246 @@
+---
+alwaysApply: true
+description: "Project-wide standards for package management, dependencies, testing, and infrastructure"
+---
+## Package & Dependency Management
+
+### Python Projects
+- **Package Manager**: Use `uv` for ALL Python package and project management
+  - Project initialization: `uv init`
+  - Add dependencies: `uv add <package>`
+  - Install dependencies: `uv sync`
+  - Run scripts: `uv run <command>`
+  - Testing: `uv run pytest` (do NOT use pip or other package managers)
+  - Use uv workspaces for projectmultiple packages https://docs.astral.sh/uv/concepts/projects/workspaces/
+  
+- **Configuration**: Define dependencies in `pyproject.toml`
+- **Lock files**: Maintain `uv.lock` for reproducible builds
+- **Dockerfiles**: Use `uv` for installing dependencies in Docker images
+
+**Example Docker pattern:**
+```dockerfile
+FROM python:3.13-bookworm-slim
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-cache
+```
+
+### USE Typescript and React for front end code for all projects 
+- **Package Manager**: Use pnpm by default (unless npm already established in project)
+- **Configuration**: Maintain package.json with explicit versions
+- **Lock files**: Commit package-lock.json for reproducibility
+
+---
+
+## Dependency Version Requirements
+
+### Critical Version Policy
+- **All library dependencies MUST be current as of {date} or later**
+- When adding new dependencies:
+  - run command `date -Iseconds` to find the applicable {date}
+  - Research the latest stable version as of this {date}
+  - Verify compatibility with existing dependencies
+  - Document version choices if pinning to specific versions
+  - Use semantic versioning principles
+  
+### Version Management
+- Python: Use version specifiers in pyproject.toml (e.g., `package>=1.0.0,<2.0.0`)
+- JavaScript: Use semantic versioning in package.json (e.g., `"package": "^1.0.0"`)
+- Docker base images: Use specific version tags, keep updated
+- Infrastructure dependencies: Verify versions match December 2025+ requirements
+
+
+
+### Regular Maintenance
+- Periodically review and update dependencies
+- Test thoroughly after dependency updates
+- Keep lock files synchronized with dependency specifications
+
+---
+## Software Testing Libraries
+
+### Use Pytest for writing unit tests in Python
+### Use Behave for writing BDD tests in Python
+### Use Jest for writing tests in Typescript. Write Typescript tests in a BDD style, so that you test the behavior of the system under test
+---
+
+## Dependency Injection for External Services
+
+### Core Principle
+**Pass dependencies to classes/functions instead of creating them internally.**
+
+Dependency Injection (DI) is about HOW dependencies are provided. Don't create external service clients inside your classes - receive them as constructor or function parameters.
+
+### Benefits
+- **Testability**: Easy to pass mocks/stubs in tests
+- **Explicitness**: Dependencies are visible in signatures
+- **Reduced coupling**: Code doesn't depend on global state
+- **Flexibility**: Caller controls which instance is used
+
+### Python Pattern: Constructor Injection
+
+```python
+import boto3
+from unittest.mock import Mock
+
+# ❌ BAD: Creates its own dependency internally
+class ReportGenerator:
+    def __init__(self):
+        self._s3 = boto3.client("s3")  # Hard to test!
+    
+    def generate(self, report_id: str, data: bytes) -> None:
+        self._s3.put_object(Bucket="reports", Key=f"{report_id}.pdf", Body=data)
+
+
+# ✅ GOOD: Dependency is injected via constructor
+class ReportGenerator:
+    def __init__(self, s3_client):
+        self._s3 = s3_client  # Passed in - easy to mock
+    
+    def generate(self, report_id: str, data: bytes) -> None:
+        self._s3.put_object(Bucket="reports", Key=f"{report_id}.pdf", Body=data)
+
+
+# Production usage
+generator = ReportGenerator(s3_client=boto3.client("s3"))
+
+# Test usage - inject a mock
+def test_generate_uploads_report():
+    mock_s3 = Mock()
+    generator = ReportGenerator(s3_client=mock_s3)
+    
+    generator.generate("report-123", b"PDF content")
+    
+    mock_s3.put_object.assert_called_once_with(
+        Bucket="reports", Key="report-123.pdf", Body=b"PDF content"
+    )
+```
+
+### Python Pattern: Function Parameter Injection
+
+Pure functions can also use dependency injection by accepting dependencies as parameters:
+
+```python
+from datetime import datetime
+from typing import Callable
+from unittest.mock import Mock
+
+# ❌ BAD: Function calls external service directly
+def get_user_greeting(user_id: str) -> str:
+    user = database.get_user(user_id)  # Implicit dependency on global
+    return f"Hello, {user.name}!"
+
+
+# ❌ BAD: Function uses datetime.now() directly (impure, hard to test)
+def create_audit_log(action: str) -> dict:
+    return {
+        "action": action,
+        "timestamp": datetime.now().isoformat(),  # Non-deterministic!
+    }
+
+
+# ✅ GOOD: Dependencies passed as function parameters
+def get_user_greeting(user_id: str, get_user: Callable[[str], User]) -> str:
+    user = get_user(user_id)  # Injected - caller provides the function
+    return f"Hello, {user.name}!"
+
+
+# ✅ GOOD: Time provider injected for deterministic testing
+def create_audit_log(
+    action: str,
+    get_current_time: Callable[[], datetime] = datetime.now,
+) -> dict:
+    return {
+        "action": action,
+        "timestamp": get_current_time().isoformat(),
+    }
+
+
+# Test with injected dependencies
+def test_get_user_greeting():
+    mock_user = Mock(name="Alice")
+    mock_get_user = Mock(return_value=mock_user)
+    
+    result = get_user_greeting("user-123", get_user=mock_get_user)
+    
+    assert result == "Hello, Alice!"
+    mock_get_user.assert_called_once_with("user-123")
+
+
+def test_create_audit_log_with_fixed_time():
+    fixed_time = datetime(2025, 1, 15, 10, 30, 0)
+    
+    result = create_audit_log("LOGIN", get_current_time=lambda: fixed_time)
+    
+    assert result == {"action": "LOGIN", "timestamp": "2025-01-15T10:30:00"}
+```
+
+### Anti-Patterns to Avoid
+
+```python
+# ❌ BAD: Global singleton / module-level instance
+_s3_client = boto3.client("s3")  # Global state!
+
+def upload_file(path: str, data: bytes):
+    _s3_client.put_object(...)  # Implicit dependency, hard to test
+
+
+# ❌ BAD: Creating dependency inside the class
+class DataProcessor:
+    def __init__(self):
+        self._db = DatabaseConnection()  # Tightly coupled
+
+
+# ✅ GOOD: Receive dependencies from caller
+class DataProcessor:
+    def __init__(self, db_connection):
+        self._db = db_connection  # Caller provides the connection
+```
+
+### Advanced: Dependency Inversion
+
+For systems needing swappable implementations (e.g., S3 vs local filesystem), combine DI with Protocol-based abstractions. See `.cursor/dependency-inversion-python.mdc` for the full pattern.
+
+---
+
+
+## Software Logging Libraries
+
+### Use loguru for logging in Python
+### Use [Winston](https://github.com/winstonjs/winston/blob/master/README.md) for logging in Javascript or Typescript
+
+
+---
+
+
+## Update README.md and/or other documentation
+
+### After changes to the functionality are added or subtracted, update the README.md file accordingly so that the documentation and the codebase stay in sync
+
+---
+
+
+## Python Type Annotation Analysis Plan
+
+### This is for methods and functions written in Python code that do not have a type annotation
+### Analysis Approach: Analyze Python files specified directories to identify functions and methods missing type annotations. then, if missing, cite location and propose the correct annotations in a separate markdown document located at documents/generated_documents/proposed_type_annotations_{yyyy_mm_dd}_version_{number}. 
+
+#### Review each Python file in backend/ directory and all subdirs systematically
+#### Identify functions/methods without return type annotations
+#### Identify parameters without type annotations
+#### Note: __init__ methods typically don't have return type annotations (they implicitly return None)
+
+#### can run command `make typecheck` from the root directory of the repo as a tool to help your analysis.
+### Wait for approval from user before adding your recommendeded new type annotations to existing code.
+---
+## Summary
+
+These rules ensure:
+1. **Clean Architecture**: Explicit dependencies, testable code
+2. **Modern Tooling**: Current tools and versions (pytest, jest, uv, OpenTofu)
+3. **Maintainability**: Clear patterns, up-to-date dependencies
+4. **Testability**: Dependency injection enables comprehensive testing
+5. **Reproducibility**: Lock files and explicit versions
+
+Apply these rules intelligently based on context. If a specific situation requires deviation from these rules, document the rationale clearly in code comments.
+

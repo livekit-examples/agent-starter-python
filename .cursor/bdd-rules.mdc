@@ -1,0 +1,234 @@
+---
+globs: ["**/features/**/*.feature", "**/features/**/*.py", "**/steps/**/*.py"]
+description: "BDD testing rules using Behave for Python projects"
+---
+
+## Behavior-Driven Development (BDD) with Behave
+
+### Overview
+Use [Behave](https://behave.readthedocs.io/en/stable/) for BDD testing in Python. Behave uses Gherkin syntax for feature files and Python for step implementations.
+
+---
+
+## Project Structure
+
+Organize BDD tests following this structure:
+```
+features/
+├── environment.py          # Hooks and fixtures (before_all, after_all, etc.)
+├── steps/                   # Step definition modules
+│   ├── __init__.py
+│   ├── common_steps.py      # Shared steps across features
+│   └── <domain>_steps.py    # Domain-specific steps
+├── <feature_name>.feature   # Feature files
+└── fixtures/                # Test fixtures and data (optional)
+```
+
+---
+
+## Feature File Guidelines
+
+### Writing Feature Files
+- **Test WHAT, not HOW**: Focus on business behavior, not implementation details
+- **Technology-agnostic**: Feature files should be independent of the system under test (SUT) implementation
+- **Use declarative language**: Describe intended outcomes, not UI interactions
+
+**Good Example:**
+```gherkin
+Feature: User Authentication
+  As a registered user
+  I want to sign in to my account
+  So that I can access my dashboard
+
+  Scenario: Successful login with valid credentials
+    Given a registered user with email "user@example.com"
+    When the user authenticates with valid credentials
+    Then the user should be granted access
+    And the user should see their dashboard
+```
+
+**Bad Example (too implementation-specific):**
+```gherkin
+Scenario: Login via UI
+  Given I am on the login page
+  When I type "user@example.com" into the email field
+  And I click the submit button
+  Then I should be redirected to "/dashboard"
+```
+
+### Scenario Organization
+- Use `Background` for common preconditions shared across scenarios
+- Use `Scenario Outline` with `Examples` for data-driven tests
+- Keep scenarios focused on a single behavior
+- Use tags for filtering and categorization (`@wip`, `@slow`, `@api`, `@ui`)
+
+---
+
+## Step Definitions
+
+### Best Practices
+- **Reusable steps**: Write generic, parameterized steps that can be reused
+- **Thin steps**: Keep step implementations thin; delegate to helper functions or services
+- **Use context**: Store shared state in `context` object, not module-level variables
+
+**Example Step Definition:**
+```python
+# -- FILE: features/steps/user_steps.py
+from behave import given, when, then
+
+@given('a registered user with email "{email}"')
+def step_given_registered_user(context, email):
+    context.user = context.user_service.create_user(email=email)
+
+@when('the user authenticates with valid credentials')
+def step_when_user_authenticates(context):
+    context.auth_result = context.auth_service.authenticate(context.user)
+
+@then('the user should be granted access')
+def step_then_user_granted_access(context):
+    assert context.auth_result.is_authenticated
+```
+
+### Step Parameters
+- Use `{param}` for string parameters (parse expressions)
+- Use `{param:d}` for integers, `{param:f}` for floats
+- Use regular expressions for complex matching when needed
+
+---
+
+## Environment Configuration (environment.py)
+
+### Fixtures and Hooks
+Use Behave fixtures for setup/teardown with proper cleanup:
+
+```python
+# -- FILE: features/environment.py
+from behave import fixture, use_fixture
+
+@fixture
+def database_connection(context):
+    """Database fixture with automatic cleanup."""
+    context.db = create_test_database()
+    yield context.db
+    # Cleanup runs after scenario/feature
+    context.db.rollback()
+    context.db.close()
+
+def before_all(context):
+    """Global setup - runs once before all features."""
+    use_fixture(database_connection, context)
+    # Initialize services using dependency injection
+    context.user_service = UserService(context.db)
+    context.auth_service = AuthService(context.db)
+
+def before_scenario(context, scenario):
+    """Per-scenario setup."""
+    context.db.begin_transaction()
+
+def after_scenario(context, scenario):
+    """Per-scenario cleanup."""
+    context.db.rollback()
+```
+
+### Dependency Injection
+- **Do NOT use global singletons** in step definitions
+- Initialize services in `before_all()` or `before_scenario()` hooks
+- Pass dependencies through the `context` object
+
+---
+
+## Test Automation Layers
+
+### Prefer API/Model Layer Testing
+- **Primary**: Test business logic via REST API or service layer
+- **Secondary**: UI testing only when specifically needed
+- Reuse feature files across layers using `--stage` option:
+
+```bash
+uv run behave --stage=api features/     # Test via API
+uv run behave --stage=ui features/      # Test via UI (subset)
+```
+
+### When UI Testing is Required
+Use Selenium or Splinter with fixtures:
+
+```python
+from behave import fixture, use_fixture
+from selenium.webdriver import Firefox
+
+@fixture
+def browser_firefox(context):
+    context.browser = Firefox()
+    yield context.browser
+    context.browser.quit()
+
+def before_all(context):
+    use_fixture(browser_firefox, context)
+```
+
+---
+
+## Running Behave Tests
+
+### Commands
+```bash
+# Run all BDD tests
+uv run behave
+
+# Run specific feature
+uv run behave features/authentication.feature
+
+# Run by tag
+uv run behave --tags=@api
+uv run behave --tags="@critical and not @slow"
+
+# Generate reports
+uv run behave --format=json -o reports/results.json
+uv run behave --format=html -o reports/results.html
+```
+
+### Configuration (behave.ini or pyproject.toml)
+```ini
+# behave.ini
+[behave]
+format = pretty
+logging_level = INFO
+junit = true
+junit_directory = reports/
+```
+
+Or in `pyproject.toml`:
+```toml
+[tool.behave]
+format = "pretty"
+junit = true
+junit_directory = "reports/"
+```
+
+---
+
+## Integration with pytest
+
+If needed, run Behave tests via pytest using `pytest-bdd` or invoke Behave as a subprocess:
+
+```python
+# tests/test_bdd.py
+import subprocess
+
+def test_bdd_features():
+    result = subprocess.run(
+        ["uv", "run", "behave", "--tags=@critical"],
+        capture_output=True
+    )
+    assert result.returncode == 0, result.stderr.decode()
+```
+
+---
+
+## Summary
+
+1. **Feature files**: Declarative, technology-agnostic, business-focused
+2. **Step definitions**: Thin, reusable, use context for state
+3. **No singletons**: Use dependency injection via environment.py hooks
+4. **Test layers**: Prefer API/model testing over UI testing
+5. **Run with uv**: Always use `uv run behave` for consistency

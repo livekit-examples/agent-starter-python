@@ -1,0 +1,182 @@
+---
+description: "Python dependency injection patterns for external services"
+globs:
+  - "**/*.py"
+---
+## Dependency Inversion Principle (DIP) for Python
+
+### Core Principle
+**High-level modules should not depend on low-level modules. Both should depend on abstractions. All external services (HTTP clients, AWS S3, databases, file systems, etc.) should use dependency inversion unless there is an explicit reason not to.**
+
+The Dependency Inversion Principle focuses on WHAT you depend on - abstractions (protocols/interfaces) rather than concrete implementations. This enables swapping implementations without changing business logic.
+
+### When to Use DIP
+- Multiple implementations of the same capability (e.g., S3 vs local filesystem)
+- Business logic that should be decoupled from infrastructure
+- Systems where you need to swap backends (dev vs prod, different vendors)
+- Code that requires high testability with fake/mock implementations
+
+### Python Pattern: Protocol-Based Abstractions
+
+Define protocols (interfaces) for external services, then have concrete implementations satisfy them:
+
+```python
+# protocols/storage.py
+from typing import Protocol
+
+class StorageProtocol(Protocol):
+    """Abstract interface for storage operations."""
+    
+    def read_file(self, path: str) -> bytes:
+        """Read file contents from storage."""
+        ...
+    
+    def write_file(self, path: str, data: bytes) -> None:
+        """Write data to storage."""
+        ...
+    
+    def file_exists(self, path: str) -> bool:
+        """Check if file exists in storage."""
+        ...
+
+
+# services/s3_storage.py
+import boto3
+from protocols.storage import StorageProtocol
+
+class S3StorageService:
+    """S3 implementation of StorageProtocol."""
+    
+    def __init__(self, bucket_name: str, s3_client: boto3.client | None = None):
+        self._bucket = bucket_name
+        self._client = s3_client or boto3.client("s3")
+    
+    def read_file(self, path: str) -> bytes:
+        response = self._client.get_object(Bucket=self._bucket, Key=path)
+        return response["Body"].read()
+    
+    def write_file(self, path: str, data: bytes) -> None:
+        self._client.put_object(Bucket=self._bucket, Key=path, Body=data)
+    
+    def file_exists(self, path: str) -> bool:
+        try:
+            self._client.head_object(Bucket=self._bucket, Key=path)
+            return True
+        except self._client.exceptions.ClientError:
+            return False
+
+
+# services/local_storage.py
+from pathlib import Path
+from protocols.storage import StorageProtocol
+
+class LocalStorageService:
+    """Local filesystem implementation of StorageProtocol."""
+    
+    def __init__(self, base_path: str):
+        self._base = Path(base_path)
+    
+    def read_file(self, path: str) -> bytes:
+        return (self._base / path).read_bytes()
+    
+    def write_file(self, path: str, data: bytes) -> None:
+        file_path = self._base / path
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_bytes(data)
+    
+    def file_exists(self, path: str) -> bool:
+        return (self._base / path).exists()
+
+
+# services/document_service.py
+from protocols.storage import StorageProtocol
+
+class DocumentService:
+    """Business logic that depends on abstraction, not concrete implementation."""
+    
+    def __init__(self, storage: StorageProtocol):
+        self._storage = storage  # Depends on protocol, not S3 or Local
+    
+    def get_document(self, doc_id: str) -> bytes:
+        path = f"documents/{doc_id}.pdf"
+        if not self._storage.file_exists(path):
+            raise FileNotFoundError(f"Document {doc_id} not found")
+        return self._storage.read_file(path)
+
+
+# dependencies.py (FastAPI example)
+from functools import lru_cache
+from services.s3_storage import S3StorageService
+from services.document_service import DocumentService
+from config import settings
+
+@lru_cache
+def get_storage_service() -> S3StorageService:
+    return S3StorageService(bucket_name=settings.storage_bucket)
+
+def get_document_service(
+    storage: StorageProtocol = Depends(get_storage_service)
+) -> DocumentService:
+    return DocumentService(storage=storage)
+
+
+# tests/test_document_service.py
+import pytest
+from services.document_service import DocumentService
+
+class MockStorage:
+    """Mock implementation satisfying StorageProtocol for testing."""
+    
+    def __init__(self):
+        self.files: dict[str, bytes] = {}
+    
+    def read_file(self, path: str) -> bytes:
+        return self.files[path]
+    
+    def write_file(self, path: str, data: bytes) -> None:
+        self.files[path] = data
+    
+    def file_exists(self, path: str) -> bool:
+        return path in self.files
+
+
+def test_get_document_returns_content():
+    # Arrange - inject mock that satisfies the protocol
+    mock_storage = MockStorage()
+    mock_storage.files["documents/doc123.pdf"] = b"PDF content"
+    service = DocumentService(storage=mock_storage)
+    
+    # Act
+    result = service.get_document("doc123")
+    
+    # Assert
+    assert result == b"PDF content"
+
+
+def test_get_document_raises_when_not_found():
+    # Arrange - inject empty mock storage
+    mock_storage = MockStorage()
+    service = DocumentService(storage=mock_storage)
+    
+    # Act & Assert
+    with pytest.raises(FileNotFoundError):
+        service.get_document("nonexistent")
+```
+
+### Benefits of DIP
+
+- **Swappable implementations**: Use S3 in prod, local filesystem in dev
+- **Testability**: Create mock implementations that satisfy the protocol
+- **Decoupling**: Business logic doesn't know or care about storage technology
+- **Extensibility**: Add new implementations (GCS, Azure Blob) without changing consumers
+
+### Relationship to Dependency Injection
+
+Dependency Inversion (DIP) and Dependency Injection (DI) are complementary:
+
+| Principle | Focus | Question Answered |
+|-----------|-------|-------------------|
+| **Dependency Inversion** | WHAT you depend on | "Should I depend on S3StorageService or StorageProtocol?" |
+| **Dependency Injection** | HOW dependencies are provided | "Should I create the storage or receive it?" |
+
+Use DIP when you need abstraction layers. Use DI (see rules.mdc) for simpler cases where you just want to avoid creating dependencies internally.
