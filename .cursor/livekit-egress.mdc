@@ -1,0 +1,436 @@
+---
+description: recording audio and transcripts on livekit using Egress APIs
+alwaysApply: false
+---
+# LiveKit Egress - Python Audio Recording Guide
+
+## Overview
+
+LiveKit Egress provides APIs to export audio from LiveKit sessions. This guide covers **audio-only** recording and transcription use cases using **Python** with **AWS S3** storage.
+
+**Context**: We are a LiveKit Cloud customer - no self-hosting or Egress deployment is required.
+
+## Installation
+
+```bash
+pip install livekit-api
+```
+
+## Python SDK Client Setup
+
+```python
+from livekit import api
+
+# Initialize the LiveKit API client
+livekit_api = api.LiveKitAPI(
+    url="https://your-project.livekit.cloud",
+    api_key="your-api-key",
+    api_secret="your-api-secret"
+)
+
+# Access the Egress service
+egress_service = livekit_api.egress
+```
+
+**Required Permission**: Access tokens must have the `roomRecord` grant to use the Egress API.
+
+---
+
+## Core Egress Types (Audio-Only)
+
+### 1. RoomComposite Egress (Audio-Only)
+
+Records mixed audio from all participants in a room.
+
+- Use `audio_only=True` to exclude video
+- Tied to room lifecycle - stops automatically when room ends
+- **Best for**: Recording full room audio conversations
+
+**Audio Mixing Modes** (when `audio_only=True`):
+| Mode | Description |
+|------|-------------|
+| `DEFAULT_MIXING` | All users mixed together (default) |
+| `DUAL_CHANNEL` | Agent audio on one channel, other participants on the other |
+| `ALT_DUAL_CHANNEL` | Alternates between left/right channels for each new audio track |
+
+### 2. Track Egress
+
+Exports a single audio track directly without transcoding.
+
+- Stream to WebSocket for real-time transcription
+- Save to file for offline processing
+- **Best for**: Streaming audio to transcription services
+
+### 3. Participant Egress
+
+Records a specific participant's audio by their identity.
+
+- Handles track state changes (mute/unmute) automatically
+- Waits for participant to join if not already in room
+- **Best for**: Isolating agent or specific user audio
+
+---
+
+## AWS S3 Upload Configuration
+
+### S3Upload Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `access_key` | string | Yes | AWS access key ID |
+| `secret` | string | Yes | AWS secret access key |
+| `bucket` | string | Yes | S3 bucket name |
+| `region` | string | No | AWS region (e.g., `us-east-1`) |
+| `endpoint` | string | No | Custom endpoint URL (for S3-compatible services) |
+| `force_path_style` | bool | No | Use path-style URLs instead of virtual-hosted |
+| `metadata` | dict | No | Key/value pairs to store with the object |
+| `tagging` | string | No | S3 object tags |
+
+### S3Upload Example
+
+```python
+from livekit.protocol import egress as egress_proto
+
+s3_upload = egress_proto.S3Upload(
+    access_key="YOUR_AWS_ACCESS_KEY",
+    secret="YOUR_AWS_SECRET_KEY",
+    bucket="your-bucket-name",
+    region="us-east-1",
+    metadata={"session_id": "abc123", "environment": "production"}
+)
+```
+
+---
+
+## Output Types
+
+### EncodedFileOutput
+
+For transcoded audio files (Ogg, etc.).
+
+**Filepath Template Variables**:
+- `{room_name}` - Name of the room
+- `{time}` - Timestamp when recording started
+- `{publisher_identity}` - Identity of the track publisher
+- `{track_id}` - Track ID
+- `{track_type}` - Type of track (audio)
+- `{track_source}` - Source of the track (microphone, etc.)
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `filepath` | string | Output path template (default: `{room_name}-{time}`) |
+| `disable_manifest` | bool | Skip generating `{filepath}.json` metadata file |
+| `s3` | S3Upload | S3 upload configuration |
+
+### DirectFileOutput
+
+For Track Egress file output (raw audio without transcoding).
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `filepath` | string | Output path template (default: `{track_id}-{time}`) |
+| `disable_manifest` | bool | Skip generating metadata file |
+| `s3` | S3Upload | S3 upload configuration |
+
+### SegmentedFileOutput
+
+For HLS segments (useful for long recordings).
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `filename_prefix` | string | Prefix for segment files (include paths here) |
+| `playlist_name` | string | Name of the m3u8 playlist file |
+| `segment_duration` | uint32 | Length of each segment in seconds (default: 4) |
+| `disable_manifest` | bool | Skip generating metadata file |
+| `s3` | S3Upload | S3 upload configuration |
+
+---
+
+## Practical Python Examples
+
+### Example 1: Audio-Only Room Recording to S3
+
+```python
+from livekit import api
+from livekit.protocol import egress as egress_proto
+
+async def record_room_audio(room_name: str) -> str:
+    """Record all audio from a room to S3."""
+    
+    livekit_api = api.LiveKitAPI(
+        url="https://your-project.livekit.cloud",
+        api_key="your-api-key",
+        api_secret="your-api-secret"
+    )
+    
+    # Configure S3 upload
+    s3_upload = egress_proto.S3Upload(
+        access_key="YOUR_AWS_ACCESS_KEY",
+        secret="YOUR_AWS_SECRET_KEY",
+        bucket="your-recordings-bucket",
+        region="us-east-1"
+    )
+    
+    # Configure file output
+    file_output = egress_proto.EncodedFileOutput(
+        filepath="recordings/{room_name}-{time}.ogg",
+        s3=s3_upload
+    )
+    
+    # Start audio-only room composite egress
+    info = await livekit_api.egress.start_room_composite_egress(
+        egress_proto.RoomCompositeEgressRequest(
+            room_name=room_name,
+            audio_only=True,
+            file_outputs=[file_output]
+        )
+    )
+    
+    return info.egress_id
+```
+
+### Example 2: Audio-Only Room Recording with Dual Channel Mixing
+
+Separates agent audio from user audio for easier post-processing.
+
+```python
+async def record_room_dual_channel(room_name: str) -> str:
+    """Record room with agent on one channel, users on another."""
+    
+    livekit_api = api.LiveKitAPI(
+        url="https://your-project.livekit.cloud",
+        api_key="your-api-key",
+        api_secret="your-api-secret"
+    )
+    
+    s3_upload = egress_proto.S3Upload(
+        access_key="YOUR_AWS_ACCESS_KEY",
+        secret="YOUR_AWS_SECRET_KEY",
+        bucket="your-recordings-bucket",
+        region="us-east-1"
+    )
+    
+    file_output = egress_proto.EncodedFileOutput(
+        filepath="recordings/{room_name}-{time}-dual.ogg",
+        s3=s3_upload
+    )
+    
+    # DUAL_CHANNEL separates agent from other participants
+    info = await livekit_api.egress.start_room_composite_egress(
+        egress_proto.RoomCompositeEgressRequest(
+            room_name=room_name,
+            audio_only=True,
+            audio_mixing=egress_proto.AudioMixing.DUAL_CHANNEL,
+            file_outputs=[file_output]
+        )
+    )
+    
+    return info.egress_id
+```
+
+### Example 3: Track Egress to WebSocket (Real-time Transcription)
+
+Stream audio to a transcription service via WebSocket.
+
+```python
+async def stream_track_to_transcription(room_name: str, track_id: str) -> str:
+    """Stream a single audio track to a WebSocket for transcription."""
+    
+    livekit_api = api.LiveKitAPI(
+        url="https://your-project.livekit.cloud",
+        api_key="your-api-key",
+        api_secret="your-api-secret"
+    )
+    
+    # Track egress streams raw PCM audio to the WebSocket
+    info = await livekit_api.egress.start_track_egress(
+        egress_proto.TrackEgressRequest(
+            room_name=room_name,
+            track_id=track_id,
+            websocket_url="wss://your-transcription-server.com/audio"
+        )
+    )
+    
+    return info.egress_id
+```
+
+### Example 4: Track Egress to S3 File
+
+Save a single audio track to S3.
+
+```python
+async def save_track_to_s3(room_name: str, track_id: str) -> str:
+    """Save a single audio track to S3."""
+    
+    livekit_api = api.LiveKitAPI(
+        url="https://your-project.livekit.cloud",
+        api_key="your-api-key",
+        api_secret="your-api-secret"
+    )
+    
+    s3_upload = egress_proto.S3Upload(
+        access_key="YOUR_AWS_ACCESS_KEY",
+        secret="YOUR_AWS_SECRET_KEY",
+        bucket="your-tracks-bucket",
+        region="us-east-1"
+    )
+    
+    file_output = egress_proto.DirectFileOutput(
+        filepath="tracks/{track_id}-{time}.raw",
+        s3=s3_upload
+    )
+    
+    info = await livekit_api.egress.start_track_egress(
+        egress_proto.TrackEgressRequest(
+            room_name=room_name,
+            track_id=track_id,
+            file=file_output
+        )
+    )
+    
+    return info.egress_id
+```
+
+### Example 5: Participant Audio Egress
+
+Record a specific participant's audio.
+
+```python
+async def record_participant_audio(room_name: str, participant_identity: str) -> str:
+    """Record audio from a specific participant."""
+    
+    livekit_api = api.LiveKitAPI(
+        url="https://your-project.livekit.cloud",
+        api_key="your-api-key",
+        api_secret="your-api-secret"
+    )
+    
+    s3_upload = egress_proto.S3Upload(
+        access_key="YOUR_AWS_ACCESS_KEY",
+        secret="YOUR_AWS_SECRET_KEY",
+        bucket="your-recordings-bucket",
+        region="us-east-1"
+    )
+    
+    file_output = egress_proto.EncodedFileOutput(
+        filepath="participants/{room_name}-{publisher_identity}-{time}.ogg",
+        s3=s3_upload
+    )
+    
+    # Records only the specified participant's audio
+    info = await livekit_api.egress.start_participant_egress(
+        egress_proto.ParticipantEgressRequest(
+            room_name=room_name,
+            identity=participant_identity,
+            file_outputs=[file_output]
+        )
+    )
+    
+    return info.egress_id
+```
+
+---
+
+## Egress Management
+
+### List Active Egress
+
+```python
+async def list_active_egress(room_name: str = None):
+    """List active egress sessions, optionally filtered by room."""
+    
+    livekit_api = api.LiveKitAPI(
+        url="https://your-project.livekit.cloud",
+        api_key="your-api-key",
+        api_secret="your-api-secret"
+    )
+    
+    request = egress_proto.ListEgressRequest()
+    if room_name:
+        request.room_name = room_name
+    
+    response = await livekit_api.egress.list_egress(request)
+    
+    for egress in response.items:
+        print(f"Egress ID: {egress.egress_id}")
+        print(f"  Status: {egress.status}")
+        print(f"  Room: {egress.room_name}")
+```
+
+### Stop Egress
+
+```python
+async def stop_egress(egress_id: str):
+    """Stop an active egress session."""
+    
+    livekit_api = api.LiveKitAPI(
+        url="https://your-project.livekit.cloud",
+        api_key="your-api-key",
+        api_secret="your-api-secret"
+    )
+    
+    info = await livekit_api.egress.stop_egress(
+        egress_proto.StopEgressRequest(egress_id=egress_id)
+    )
+    
+    return info
+```
+
+---
+
+## WebSocket Audio Streaming Details
+
+When using Track Egress with `websocket_url`, the Egress service streams raw audio:
+
+| Property | Value |
+|----------|-------|
+| Format | Raw PCM `pcm_s16le` (16-bit signed little-endian) |
+| Content-Type | `audio/x-raw` |
+| Sample Rate | Typically 48kHz |
+| Channels | Mono or Stereo (depends on track) |
+
+**Mute Events**: When the track is muted/unmuted, JSON messages are sent:
+```json
+{"muted": true}
+{"muted": false}
+```
+
+**Connection Lifecycle**: The WebSocket connection terminates when:
+- The track is unpublished
+- The participant leaves the room
+- The egress is stopped via API
+
+---
+
+## EgressInfo Response Fields
+
+When starting or querying egress, you receive an `EgressInfo` object:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `egress_id` | string | Unique identifier for the egress (format: `EG_XXXXXXXXXXXX`) |
+| `room_id` | string | Room ID |
+| `room_name` | string | Room name |
+| `status` | EgressStatus | Current status of the egress |
+| `started_at` | int64 | Unix timestamp when egress started |
+| `ended_at` | int64 | Unix timestamp when egress ended (if completed) |
+
+---
+
+## Reference Links
+
+- [LiveKit Egress Overview](https://docs.livekit.io/home/egress/overview/)
+- [Python SDK API Reference](https://docs.livekit.io/reference/python/v1/livekit/api/egress_service.html)
+- [Egress API Reference](https://docs.livekit.io/home/egress/api/)
+- [Egress Examples](https://docs.livekit.io/home/egress/examples/)
+- [GitHub Repository](https://github.com/livekit/egress)
+
+---
+
+## Implementation Notes
+
+1. **Async Pattern**: The Python SDK uses async/await - all egress methods are coroutines
+2. **Protocol Buffers**: Request/response types are accessed via `livekit.protocol.egress` module
+3. **Audio-Only Focus**: This documentation intentionally omits all video-related parameters
+4. **AWS S3 Only**: Only S3 storage configuration is documented per project requirements
+5. **LiveKit Cloud**: No Egress service deployment needed - it's managed by LiveKit Cloud

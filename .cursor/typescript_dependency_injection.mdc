@@ -1,0 +1,632 @@
+---
+description: "TypeScript dependency injection patterns for external services"
+globs:
+  - "**/*.ts"
+  - "**/*.tsx"
+---
+
+## TypeScript Dependency Injection for External Services
+
+### Core Principle
+**All external services (HTTP clients, AWS S3, databases, file systems, etc.) MUST use dependency injection.**
+
+Do NOT use global singletons, module-level instances, or direct imports of configured clients. Instead, inject dependencies through constructors or function parameters.
+
+### Benefits
+- **Testability**: Easy to mock/stub external services in tests with Jest
+- **Flexibility**: Swap implementations (e.g., local filesystem ↔ S3) without changing business logic
+- **Explicitness**: Dependencies are visible in class/function signatures
+- **Reduced coupling**: Code doesn't depend on global state
+- **Type safety**: Interfaces ensure implementations satisfy contracts
+
+---
+
+## Pattern: Interface + Dependency Injection
+
+### Step 1: Define Interfaces for External Services
+
+```typescript
+// interfaces/storage.ts
+export interface StorageService {
+  readFile(path: string): Promise<Buffer>;
+  writeFile(path: string, data: Buffer): Promise<void>;
+  deleteFile(path: string): Promise<void>;
+  fileExists(path: string): Promise<boolean>;
+  listFiles(prefix: string): Promise<string[]>;
+}
+
+// interfaces/http-client.ts
+export interface HttpClient {
+  get<T>(url: string, config?: RequestConfig): Promise<HttpResponse<T>>;
+  post<T>(url: string, data: unknown, config?: RequestConfig): Promise<HttpResponse<T>>;
+  put<T>(url: string, data: unknown, config?: RequestConfig): Promise<HttpResponse<T>>;
+  delete<T>(url: string, config?: RequestConfig): Promise<HttpResponse<T>>;
+}
+
+export interface RequestConfig {
+  headers?: Record<string, string>;
+  timeout?: number;
+  params?: Record<string, string>;
+}
+
+export interface HttpResponse<T> {
+  data: T;
+  status: number;
+  headers: Record<string, string>;
+}
+
+// interfaces/database.ts
+export interface DatabaseClient {
+  query<T>(sql: string, params?: unknown[]): Promise<T[]>;
+  execute(sql: string, params?: unknown[]): Promise<{ affectedRows: number }>;
+  transaction<T>(fn: (client: DatabaseClient) => Promise<T>): Promise<T>;
+  close(): Promise<void>;
+}
+```
+
+---
+
+### Step 2: Create Concrete Implementations
+
+#### S3 Storage Implementation
+
+```typescript
+// services/s3-storage.service.ts
+import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import type { StorageService } from "../interfaces/storage";
+
+export class S3StorageService implements StorageService {
+  constructor(
+    private readonly bucketName: string,
+    private readonly s3Client: S3Client  // Inject the AWS client itself!
+  ) {}
+
+  async readFile(path: string): Promise<Buffer> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: path,
+    });
+    const response = await this.s3Client.send(command);
+    const stream = response.Body;
+    if (!stream) {
+      throw new Error(`File not found: ${path}`);
+    }
+    return Buffer.from(await stream.transformToByteArray());
+  }
+
+  async writeFile(path: string, data: Buffer): Promise<void> {
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: path,
+      Body: data,
+    });
+    await this.s3Client.send(command);
+  }
+
+  async deleteFile(path: string): Promise<void> {
+    const command = new DeleteObjectCommand({
+      Bucket: this.bucketName,
+      Key: path,
+    });
+    await this.s3Client.send(command);
+  }
+
+  async fileExists(path: string): Promise<boolean> {
+    try {
+      const command = new HeadObjectCommand({
+        Bucket: this.bucketName,
+        Key: path,
+      });
+      await this.s3Client.send(command);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async listFiles(prefix: string): Promise<string[]> {
+    const command = new ListObjectsV2Command({
+      Bucket: this.bucketName,
+      Prefix: prefix,
+    });
+    const response = await this.s3Client.send(command);
+    return response.Contents?.map((obj) => obj.Key ?? "") ?? [];
+  }
+}
+```
+
+#### Local Filesystem Implementation
+
+```typescript
+// services/local-storage.service.ts
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
+import type { StorageService } from "../interfaces/storage";
+
+export class LocalStorageService implements StorageService {
+  constructor(private readonly basePath: string) {}
+
+  private resolvePath(filePath: string): string {
+    return path.join(this.basePath, filePath);
+  }
+
+  async readFile(filePath: string): Promise<Buffer> {
+    return fs.readFile(this.resolvePath(filePath));
+  }
+
+  async writeFile(filePath: string, data: Buffer): Promise<void> {
+    const fullPath = this.resolvePath(filePath);
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.writeFile(fullPath, data);
+  }
+
+  async deleteFile(filePath: string): Promise<void> {
+    await fs.unlink(this.resolvePath(filePath));
+  }
+
+  async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(this.resolvePath(filePath));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async listFiles(prefix: string): Promise<string[]> {
+    const dirPath = this.resolvePath(prefix);
+    const entries = await fs.readdir(dirPath, { recursive: true });
+    return entries.map((entry) => path.join(prefix, entry.toString()));
+  }
+}
+```
+
+#### HTTP Client Implementation (wrapping fetch or axios)
+
+```typescript
+// services/fetch-http-client.ts
+import type { HttpClient, RequestConfig, HttpResponse } from "../interfaces/http-client";
+
+export class FetchHttpClient implements HttpClient {
+  constructor(
+    private readonly baseUrl: string,
+    private readonly defaultHeaders: Record<string, string> = {}
+  ) {}
+
+  async get<T>(url: string, config?: RequestConfig): Promise<HttpResponse<T>> {
+    return this.request<T>("GET", url, undefined, config);
+  }
+
+  async post<T>(url: string, data: unknown, config?: RequestConfig): Promise<HttpResponse<T>> {
+    return this.request<T>("POST", url, data, config);
+  }
+
+  async put<T>(url: string, data: unknown, config?: RequestConfig): Promise<HttpResponse<T>> {
+    return this.request<T>("PUT", url, data, config);
+  }
+
+  async delete<T>(url: string, config?: RequestConfig): Promise<HttpResponse<T>> {
+    return this.request<T>("DELETE", url, undefined, config);
+  }
+
+  private async request<T>(
+    method: string,
+    url: string,
+    data?: unknown,
+    config?: RequestConfig
+  ): Promise<HttpResponse<T>> {
+    const fullUrl = new URL(url, this.baseUrl);
+    if (config?.params) {
+      Object.entries(config.params).forEach(([key, value]) => {
+        fullUrl.searchParams.set(key, value);
+      });
+    }
+
+    const response = await fetch(fullUrl.toString(), {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...this.defaultHeaders,
+        ...config?.headers,
+      },
+      body: data ? JSON.stringify(data) : undefined,
+      signal: config?.timeout ? AbortSignal.timeout(config.timeout) : undefined,
+    });
+
+    const responseData = await response.json() as T;
+    const headers: Record<string, string> = {};
+    response.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+
+    return {
+      data: responseData,
+      status: response.status,
+      headers,
+    };
+  }
+}
+```
+
+---
+
+### Step 3: Business Logic Uses Injected Dependencies
+
+```typescript
+// services/document.service.ts
+import type { StorageService } from "../interfaces/storage";
+import type { HttpClient } from "../interfaces/http-client";
+
+export interface Document {
+  id: string;
+  content: string;
+  metadata: Record<string, unknown>;
+}
+
+export class DocumentService {
+  constructor(
+    private readonly storage: StorageService,      // Injected
+    private readonly httpClient: HttpClient        // Injected
+  ) {}
+
+  async getDocument(documentId: string): Promise<Document> {
+    const path = `documents/${documentId}.json`;
+    
+    if (!(await this.storage.fileExists(path))) {
+      throw new Error(`Document not found: ${documentId}`);
+    }
+    
+    const data = await this.storage.readFile(path);
+    return JSON.parse(data.toString()) as Document;
+  }
+
+  async saveDocument(document: Document): Promise<void> {
+    const path = `documents/${document.id}.json`;
+    const data = Buffer.from(JSON.stringify(document, null, 2));
+    await this.storage.writeFile(path, data);
+  }
+
+  async syncWithRemote(documentId: string): Promise<Document> {
+    const response = await this.httpClient.get<Document>(`/api/documents/${documentId}`);
+    await this.saveDocument(response.data);
+    return response.data;
+  }
+}
+```
+
+---
+
+### Step 4: Dependency Composition (Application Bootstrap)
+
+```typescript
+// composition/container.ts
+import { S3Client } from "@aws-sdk/client-s3";
+import { S3StorageService } from "../services/s3-storage.service";
+import { LocalStorageService } from "../services/local-storage.service";
+import { FetchHttpClient } from "../services/fetch-http-client";
+import { DocumentService } from "../services/document.service";
+import type { StorageService } from "../interfaces/storage";
+import type { HttpClient } from "../interfaces/http-client";
+
+export interface AppConfig {
+  storage: {
+    type: "s3" | "local";
+    s3Bucket?: string;
+    s3Region?: string;
+    localPath?: string;
+  };
+  api: {
+    baseUrl: string;
+    apiKey?: string;
+  };
+}
+
+export function createStorageService(config: AppConfig["storage"]): StorageService {
+  if (config.type === "s3") {
+    if (!config.s3Bucket || !config.s3Region) {
+      throw new Error("S3 bucket and region are required for S3 storage");
+    }
+    const s3Client = new S3Client({ region: config.s3Region });
+    return new S3StorageService(config.s3Bucket, s3Client);
+  }
+  
+  if (!config.localPath) {
+    throw new Error("Local path is required for local storage");
+  }
+  return new LocalStorageService(config.localPath);
+}
+
+export function createHttpClient(config: AppConfig["api"]): HttpClient {
+  const headers: Record<string, string> = {};
+  if (config.apiKey) {
+    headers["Authorization"] = `Bearer ${config.apiKey}`;
+  }
+  return new FetchHttpClient(config.baseUrl, headers);
+}
+
+export function createDocumentService(config: AppConfig): DocumentService {
+  const storage = createStorageService(config.storage);
+  const httpClient = createHttpClient(config.api);
+  return new DocumentService(storage, httpClient);
+}
+```
+
+---
+
+### Step 5: Testing with Mock Implementations
+
+```typescript
+// __tests__/document.service.test.ts
+import { DocumentService, type Document } from "../services/document.service";
+import type { StorageService } from "../interfaces/storage";
+import type { HttpClient, HttpResponse, RequestConfig } from "../interfaces/http-client";
+
+// Mock implementations for testing
+class MockStorageService implements StorageService {
+  private files = new Map<string, Buffer>();
+
+  async readFile(path: string): Promise<Buffer> {
+    const data = this.files.get(path);
+    if (!data) throw new Error(`File not found: ${path}`);
+    return data;
+  }
+
+  async writeFile(path: string, data: Buffer): Promise<void> {
+    this.files.set(path, data);
+  }
+
+  async deleteFile(path: string): Promise<void> {
+    this.files.delete(path);
+  }
+
+  async fileExists(path: string): Promise<boolean> {
+    return this.files.has(path);
+  }
+
+  async listFiles(prefix: string): Promise<string[]> {
+    return Array.from(this.files.keys()).filter((key) => key.startsWith(prefix));
+  }
+
+  // Test helper methods
+  setFile(path: string, content: unknown): void {
+    this.files.set(path, Buffer.from(JSON.stringify(content)));
+  }
+
+  getFile(path: string): unknown {
+    const data = this.files.get(path);
+    return data ? JSON.parse(data.toString()) : undefined;
+  }
+}
+
+class MockHttpClient implements HttpClient {
+  private responses = new Map<string, unknown>();
+
+  async get<T>(url: string, _config?: RequestConfig): Promise<HttpResponse<T>> {
+    return this.mockResponse<T>(url);
+  }
+
+  async post<T>(url: string, _data: unknown, _config?: RequestConfig): Promise<HttpResponse<T>> {
+    return this.mockResponse<T>(url);
+  }
+
+  async put<T>(url: string, _data: unknown, _config?: RequestConfig): Promise<HttpResponse<T>> {
+    return this.mockResponse<T>(url);
+  }
+
+  async delete<T>(url: string, _config?: RequestConfig): Promise<HttpResponse<T>> {
+    return this.mockResponse<T>(url);
+  }
+
+  private mockResponse<T>(url: string): HttpResponse<T> {
+    const data = this.responses.get(url) as T;
+    if (!data) throw new Error(`No mock response for: ${url}`);
+    return { data, status: 200, headers: {} };
+  }
+
+  // Test helper
+  setResponse(url: string, data: unknown): void {
+    this.responses.set(url, data);
+  }
+}
+
+describe("DocumentService", () => {
+  let mockStorage: MockStorageService;
+  let mockHttpClient: MockHttpClient;
+  let documentService: DocumentService;
+
+  beforeEach(() => {
+    // Create fresh mocks for each test
+    mockStorage = new MockStorageService();
+    mockHttpClient = new MockHttpClient();
+    // Inject mocks into the service
+    documentService = new DocumentService(mockStorage, mockHttpClient);
+  });
+
+  describe("getDocument", () => {
+    it("should return document when it exists", async () => {
+      // Arrange
+      const expectedDoc: Document = {
+        id: "doc-123",
+        content: "Hello world",
+        metadata: { author: "test" },
+      };
+      mockStorage.setFile("documents/doc-123.json", expectedDoc);
+
+      // Act
+      const result = await documentService.getDocument("doc-123");
+
+      // Assert
+      expect(result).toEqual(expectedDoc);
+    });
+
+    it("should throw error when document does not exist", async () => {
+      // Act & Assert
+      await expect(documentService.getDocument("nonexistent")).rejects.toThrow(
+        "Document not found: nonexistent"
+      );
+    });
+  });
+
+  describe("saveDocument", () => {
+    it("should save document to storage", async () => {
+      // Arrange
+      const doc: Document = {
+        id: "new-doc",
+        content: "New content",
+        metadata: {},
+      };
+
+      // Act
+      await documentService.saveDocument(doc);
+
+      // Assert
+      const saved = mockStorage.getFile("documents/new-doc.json");
+      expect(saved).toEqual(doc);
+    });
+  });
+
+  describe("syncWithRemote", () => {
+    it("should fetch document from API and save to storage", async () => {
+      // Arrange
+      const remoteDoc: Document = {
+        id: "remote-doc",
+        content: "Remote content",
+        metadata: { source: "api" },
+      };
+      mockHttpClient.setResponse("/api/documents/remote-doc", remoteDoc);
+
+      // Act
+      const result = await documentService.syncWithRemote("remote-doc");
+
+      // Assert
+      expect(result).toEqual(remoteDoc);
+      const saved = mockStorage.getFile("documents/remote-doc.json");
+      expect(saved).toEqual(remoteDoc);
+    });
+  });
+});
+```
+
+---
+
+## Anti-Patterns to Avoid
+
+```typescript
+// ❌ BAD: Global singleton / module-level instance
+import { S3Client } from "@aws-sdk/client-s3";
+
+const s3Client = new S3Client({ region: "us-east-1" });  // Global state!
+
+export async function uploadFile(key: string, data: Buffer): Promise<void> {
+  // Hard to test, implicit dependency on global s3Client
+  await s3Client.send(new PutObjectCommand({ Bucket: "my-bucket", Key: key, Body: data }));
+}
+
+
+// ❌ BAD: Direct import of configured service
+import { storageService } from "./services/storage";  // Singleton import
+
+export class DocumentHandler {
+  async save(doc: Document): Promise<void> {
+    await storageService.writeFile(...);  // Tight coupling, can't mock in tests
+  }
+}
+
+
+// ❌ BAD: Creating dependencies inside the class
+export class DocumentService {
+  private storage = new S3StorageService("bucket", new S3Client({}));  // Can't inject mock!
+  
+  async getDocument(id: string): Promise<Document> {
+    return this.storage.readFile(...);  // Untestable without real S3
+  }
+}
+
+
+// ✅ GOOD: Inject dependencies through constructor
+export class DocumentService {
+  constructor(private readonly storage: StorageService) {}  // Accepts any implementation
+  
+  async getDocument(id: string): Promise<Document> {
+    return this.storage.readFile(...);  // Easy to test with mock
+  }
+}
+```
+
+---
+
+## React Component Dependency Injection
+
+For React applications, use Context to inject dependencies:
+
+```typescript
+// contexts/services.context.tsx
+import { createContext, useContext, type ReactNode } from "react";
+import type { StorageService } from "../interfaces/storage";
+import type { HttpClient } from "../interfaces/http-client";
+
+export interface Services {
+  storage: StorageService;
+  httpClient: HttpClient;
+}
+
+const ServicesContext = createContext<Services | null>(null);
+
+export function ServicesProvider({
+  services,
+  children,
+}: {
+  services: Services;
+  children: ReactNode;
+}) {
+  return (
+    <ServicesContext.Provider value={services}>
+      {children}
+    </ServicesContext.Provider>
+  );
+}
+
+export function useServices(): Services {
+  const services = useContext(ServicesContext);
+  if (!services) {
+    throw new Error("useServices must be used within ServicesProvider");
+  }
+  return services;
+}
+
+// Usage in components
+function DocumentViewer({ documentId }: { documentId: string }) {
+  const { httpClient } = useServices();
+  const [document, setDocument] = useState<Document | null>(null);
+
+  useEffect(() => {
+    httpClient.get<Document>(`/api/documents/${documentId}`)
+      .then((response) => setDocument(response.data));
+  }, [documentId, httpClient]);
+
+  return document ? <div>{document.content}</div> : <div>Loading...</div>;
+}
+
+// In tests, wrap component with mock services
+const mockServices: Services = {
+  storage: new MockStorageService(),
+  httpClient: new MockHttpClient(),
+};
+
+render(
+  <ServicesProvider services={mockServices}>
+    <DocumentViewer documentId="test-123" />
+  </ServicesProvider>
+);
+```
+
+---
+
+## Summary
+
+1. **Define interfaces** for all external services (storage, HTTP, database, etc.)
+2. **Create implementations** that satisfy the interfaces
+3. **Inject dependencies** through constructors or function parameters
+4. **Compose at the application root** using factory functions
+5. **Test with mock implementations** that implement the same interfaces
+6. **Never use global singletons** or module-level configured clients

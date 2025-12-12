@@ -1,0 +1,19 @@
+[project]
+name = "livekit-recording"
+version = "0.1.0"
+description = "Recording and transcription utilities for LiveKit agents"
+requires-python = ">=3.13"
+
+dependencies = [
+    "livekit-api>=1.0.7,<2",
+    "boto3~=1.35",
+    "loguru~=0.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/livekit_recording"]
+
