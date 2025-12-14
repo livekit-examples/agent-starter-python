@@ -2,9 +2,13 @@ import json
 import asyncio
 import os
 from textwrap import dedent
+from typing import Dict, Any
 from dotenv import load_dotenv
 
 from agent_config import fetch_agent_config
+from transcript_tracker import TranscriptTracker
+from upload_transcript import upload_transcript
+from upload_worker import UploadWorkerConfig
 from livekit.agents import (
     Agent,
     AgentSession,
@@ -14,38 +18,72 @@ from livekit.agents import (
     WorkerOptions,
     cli,
     inference,
-    utils,
     llm,
 )
 from livekit import rtc
-from livekit.plugins import noise_cancellation, silero, google, openai
+from livekit.plugins import noise_cancellation, silero, openai
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 load_dotenv(".env.local")
 
+# =============================================================================
+# Default Instructions
+# =============================================================================
+
+DEFAULT_INSTRUCTIONS = dedent("""
+    ### ROLE
+    You are a potential customer interested in real estate. You are currently receiving a phone call from a sales agent at a Real Estate Brokerage.
+
+    ### CONTEXT
+    You recently visited the brokerage's website or social media page and filled out a "More Information" form regarding a property or general investment opportunities. Because of this, you are considered a "warm lead," but you are not yet sold on a specific deal.
+
+    ### BEHAVIORAL GUIDELINES
+    1.  **Voice & Tone:** Speak casually and naturally. Use conversational fillers occasionally (e.g., "um," "well," "let me think"). Do not sound like an AI assistant; sound like a human on the phone.
+    2.  **Length:** Keep your responses relatively short (1-3 sentences). People rarely give long monologues on sales calls.
+    3.  **Information release:** Do not volunteer all your information (budget, timeline, needs) immediately. Make the salesperson ask the right questions to uncover them.
+    4.  **Skepticism:** Start the call slightly guarded or busy. You "showed interest," but you might have forgotten filling out the form, or you might be busy right now. Warm up only if the salesperson builds rapport.
+    5.  **Objections:** Introduce realistic objections naturally. Examples:
+        * "I'm just looking right now."
+        * "I'm actually really busy, can you make this quick?"
+        * "The prices seem really high in that area."
+
+    ### RULES OF ENGAGEMENT
+    * **You are the CUSTOMER, not the assistant.** Never offer to help the salesperson.
+    * **Never break character.** Do not mention you are an AI or act like the sales person
+    * **End of Call:** If the salesperson is rude or aggressive, say you have to go and "hang up" (stop responding or say [HANGS UP]). If they do a good job, agree to a next step (e.g., a site visit or Zoom meeting).
+
+    ### CURRENT GOAL
+    Your goal is to determine if this agent is trustworthy and if they actually have inventory that matches your specific needs (based on the Persona).
+
+    ### START
+    Await the opening line from the Salesperson.
+""").strip()
+
 
 class AgentServer:
     """Minimal AgentServer wrapper to support the decorator pattern"""
+
     def __init__(self):
         self._entrypoint = None
         self._prewarm = None
         self._agent_name = None
-    
+
     def rtc_session(self, agent_name: str = None):
         def decorator(func):
             self._entrypoint = func
             self._agent_name = agent_name
             return func
+
         return decorator
-    
+
     @property
     def setup_fnc(self):
         return self._prewarm
-    
+
     @setup_fnc.setter
     def setup_fnc(self, func):
         self._prewarm = func
-    
+
     def __call__(self):
         """Allow cli.run_app(server) to work by converting to WorkerOptions"""
         return WorkerOptions(
@@ -54,343 +92,371 @@ class AgentServer:
             agent_name=self._agent_name,
         )
 
+
 class DefaultAgent(Agent):
     def __init__(self) -> None:
-        super().__init__(
-            instructions=dedent("""
-                ### ROLE
-                You are a potential customer interested in real estate. You are currently receiving a phone call from a sales agent at a Real Estate Brokerage.
-
-                ### CONTEXT
-                You recently visited the brokerage's website or social media page and filled out a "More Information" form regarding a property or general investment opportunities. Because of this, you are considered a "warm lead," but you are not yet sold on a specific deal.
-
-                ### BEHAVIORAL GUIDELINES
-                1.  **Voice & Tone:** Speak casually and naturally. Use conversational fillers occasionally (e.g., "um," "well," "let me think"). Do not sound like an AI assistant; sound like a human on the phone.
-                2.  **Length:** Keep your responses relatively short (1-3 sentences). People rarely give long monologues on sales calls.
-                3.  **Information release:** Do not volunteer all your information (budget, timeline, needs) immediately. Make the salesperson ask the right questions to uncover them.
-                4.  **Skepticism:** Start the call slightly guarded or busy. You "showed interest," but you might have forgotten filling out the form, or you might be busy right now. Warm up only if the salesperson builds rapport.
-                5.  **Objections:** Introduce realistic objections naturally. Examples:
-                    * "I'm just looking right now."
-                    * "I'm actually really busy, can you make this quick?"
-                    * "The prices seem really high in that area."
-
-                ### RULES OF ENGAGEMENT
-                * **You are the CUSTOMER, not the assistant.** Never offer to help the salesperson.
-                * **Never break character.** Do not mention you are an AI or act like the sales person
-                * **End of Call:** If the salesperson is rude or aggressive, say you have to go and "hang up" (stop responding or say [HANGS UP]). If they do a good job, agree to a next step (e.g., a site visit or Zoom meeting).
-
-                ### CURRENT GOAL
-                Your goal is to determine if this agent is trustworthy and if they actually have inventory that matches your specific needs (based on the Persona).
-
-                ### START
-                Await the opening line from the Salesperson.
-                
-                Persona Summary:
-                This persona is driven by data, logic, and a deep-seated fear of overpaying. He is under high stress due to a new baby on the way and the need to sell his current condo. He will be skeptical, ask for proof, and will not be swayed by emotional language.
-                Life_Stage : "Move-Up_Family"
-                Relationship_Status : "Married/Partnered (He is leading the search; his wife, Sarah, trusts his financial judgment but wants a nice home)"
-                Family_Unit : "Family (Young Kids) (One 4-year-old, and one baby on the way)"
-                Occupation_Profile : "Salaried/Stable (e.g., Senior Accountant)"
-                Physical_Needs : "Dedicated_WFH_Office (He works from home 2 days/week)"
-                Disease_Profile : "None"
-                Family_History : "Middle-Class/Frugal (Grew up in a family that watched every penny)"
-                Transaction_Type : "Selling_and_Buying (High Stress)"
-                Urgency_Timeline : "High/Urgent (The baby is due in 5 months; he wants to be "settled")"
-                Trigger_Event : "Life_Change (New baby on the way, his 2-bedroom condo is now impossible)"
-                Market_Knowledge : "Some (Zillow Expert) (He has been tracking his condo's "Zestimate" and suburban comps for a year)"
-                Local_Knowledge : "Local_Resident (He lives in the city but is moving to the suburbs)"
-                Budget_Flexibility : "Strict/Maxed-Out (His budget is entirely dependent on a top-dollar sale of his condo)"
-                Financial_Attitude : "Data-Driven/ROI-Focused"
-                Source_of_Funds : "Sale_of_Current_Home (A major contingency and source of stress)"
-                Price_Point_Sensitivity : "High (He will fight over $1,000)"
-                Primary_Driver : "Logic_ROI ("Show me the comps. Is it a good investment?")"
-                Core_Fear : "Overpaying ("I will not be the chump who buys at the top of the market.")"
-                Decision_Style : "Deliberate/Slow (He needs a spreadsheet for everything)"
-                Optimism_Level : "Cautious/Pragmatic (Leaning towards pessimistic about the market)"
-                Risk_Tolerance : "Risk-Averse (He wants a "turnkey" home. No renovations. No surprises.)"
-                Past_Experience_Sentiment : "Positive (His condo purchase was smooth, but it was 7 years ago in a very different market)"
-                Aesthetic_Preference : "Turnkey_Only (He sees renovations as risk and unknown costs)"
-                Communication_Style : "Analytical/Conscientious (Reserved, skeptical, asks "why" 10x, can seem a bit cold)"
-                Preferred_Channel : "Email_Only ("I want a paper trail. Don't just text me.")"
-                Agent_Trust_Level : "Medium (He's willing to be led, but he will verify everything you say)"
-                Objection_Handling_Style : "Questioning/Probing ("Can you send me the data on that?" "How did you get that number?")"
-                Technology_Adoption : "Digital_Comfortable (He is fine with digital tools but will read every line of a Docusign)"
-                
-                
-            """).strip(),
-        )
+        super().__init__(instructions=DEFAULT_INSTRUCTIONS)
 
 
 server = AgentServer()
 
+
 def prewarm(proc: JobProcess):
     proc.userdata["vad"] = silero.VAD.load()
 
+
 server.setup_fnc = prewarm
 
+# =============================================================================
+# Event Handlers for Transcript Tracking
+# =============================================================================
+
+
+def normalize_transcript(transcript_data) -> str:
+    """Convert transcript data to a clean string."""
+    if transcript_data is None:
+        return ""
+
+    if isinstance(transcript_data, str):
+        return transcript_data.strip()
+
+    if isinstance(transcript_data, (list, tuple)):
+        parts = []
+        for item in transcript_data:
+            if item:
+                if isinstance(item, str):
+                    parts.append(item.strip())
+                elif hasattr(item, "text"):
+                    parts.append(str(item.text).strip())
+                else:
+                    parts.append(str(item).strip())
+        return " ".join(parts)
+
+    if hasattr(transcript_data, "text"):
+        return str(transcript_data.text).strip()
+
+    return str(transcript_data).strip()
+
+
+def setup_transcript_tracking(
+    session: AgentSession,
+    tracker: TranscriptTracker,
+) -> None:
+    """
+    Wire up LiveKit session events to the transcript tracker.
+
+    This connects:
+    - User state changes (speaking/listening) → tracker.start_user_speech / end_user_speech
+    - User transcripts → tracker.add_user_transcript
+    - Agent state changes → tracker.start_agent_speech / end_agent_speech
+    - Agent transcripts → tracker.add_agent_transcript
+    """
+
+    # -------------------------------------------------------------------------
+    # User Speech Events
+    # -------------------------------------------------------------------------
+
+    @session.on("user_state_changed")
+    def on_user_state_changed(event):
+        if isinstance(event, dict):
+            new_state = event.get("new_state")
+            old_state = event.get("old_state")
+        else:
+            new_state = getattr(event, "new_state", None)
+            old_state = getattr(event, "old_state", None)
+
+        if new_state == "speaking":
+            tracker.start_user_speech()
+        elif new_state == "listening" and old_state == "speaking":
+            tracker.end_user_speech()
+
+    @session.on("user_input_transcribed")
+    def on_user_input_transcribed(event):
+        if isinstance(event, dict):
+            is_final = event.get("is_final", True)
+            transcript = event.get("transcript") or event.get("text")
+        else:
+            is_final = getattr(event, "is_final", True)
+            transcript = getattr(event, "transcript", None) or getattr(
+                event, "text", None
+            )
+
+        if is_final and transcript:
+            transcript_text = normalize_transcript(transcript)
+            if transcript_text:
+                tracker.add_user_transcript(transcript_text)
+
+    # -------------------------------------------------------------------------
+    # Agent Speech Events
+    # -------------------------------------------------------------------------
+
+    @session.on("agent_state_changed")
+    def on_agent_state_changed(event):
+        if isinstance(event, dict):
+            new_state = event.get("new_state")
+            old_state = event.get("old_state")
+        else:
+            new_state = getattr(event, "new_state", None)
+            old_state = getattr(event, "old_state", None)
+
+        if new_state == "speaking":
+            tracker.start_agent_speech()
+        elif new_state == "listening" and old_state == "speaking":
+            tracker.end_agent_speech()
+
+    @session.on("conversation_item_added")
+    def on_conversation_item_added(event):
+        try:
+            if isinstance(event, dict):
+                item = event.get("item")
+            else:
+                item = getattr(event, "item", None)
+
+            if not item:
+                return
+
+            if isinstance(item, dict):
+                role = item.get("role", "")
+            else:
+                role = getattr(item, "role", "")
+
+            role_str = str(role).lower() if role else ""
+
+            if "assistant" in role_str:
+                if isinstance(item, dict):
+                    content = (
+                        item.get("content") or item.get("text") or item.get("message")
+                    )
+                else:
+                    content = (
+                        getattr(item, "content", None)
+                        or getattr(item, "text", None)
+                        or getattr(item, "message", None)
+                    )
+
+                if content:
+                    transcript_text = normalize_transcript(content)
+                    if transcript_text:
+                        tracker.add_agent_transcript(transcript_text)
+        except Exception as e:
+            print(f"[TRANSCRIPT ERROR] conversation_item_added: {e}")
+
+
 async def warmup_llm(llm_instance, instructions: str):
-    """
-    Send a dummy request to the LLM to trigger cache warmup using the LiveKit pipeline.
-    """
+    """Send a dummy request to the LLM to trigger cache warmup."""
     try:
         chat_ctx = llm.ChatContext(
             messages=[
                 llm.ChatMessage(role=llm.ChatRole.SYSTEM, content=instructions),
-                llm.ChatMessage(role=llm.ChatRole.USER, content="ignore this message, just warming up"),
+                llm.ChatMessage(role=llm.ChatRole.USER, content="warmup"),
             ]
         )
-        
         stream = await llm_instance.chat(chat_ctx=chat_ctx, max_tokens=1)
         async for _ in stream:
             pass
-    except Exception as e:
-        print(f"[AGENT] WARNING: LLM warmup failed: {e}")
+    except Exception:
+        pass
+
 
 @server.rtc_session(agent_name="default")
 async def entrypoint(ctx: JobContext):
+    """Agent entrypoint with transcript tracking."""
+    tracker = None
+    disconnect_event = asyncio.Event()
+
     try:
-        # Get agent_id from job metadata (from RoomAgentDispatch)
+        # Parse job metadata
         agent_id = None
-        if hasattr(ctx, 'job') and ctx.job and hasattr(ctx.job, 'metadata'):
+        call_id = None
+        job_metadata = None
+
+        if hasattr(ctx, "job") and ctx.job and hasattr(ctx.job, "metadata"):
             job_metadata = ctx.job.metadata
-        
-        # Extract agent_id from job metadata
+            print(f"[AGENT] Raw metadata: {job_metadata}")
+
         if job_metadata:
             try:
-                if isinstance(job_metadata, str):
-                    job_data = json.loads(job_metadata)
-                else:
-                    job_data = job_metadata
-                # Try common field names for agent_id
-                agent_id = job_data.get("agent_id") or job_data.get("agentId") or job_data.get("uuid") or job_data.get("id")
-                # If not found in JSON, use the metadata string directly
+                job_data = (
+                    json.loads(job_metadata)
+                    if isinstance(job_metadata, str)
+                    else job_metadata
+                )
+                # Extract agentId (support multiple formats)
+                agent_id = (
+                    job_data.get("agent_id")
+                    or job_data.get("agentId")
+                    or job_data.get("uuid")
+                    or job_data.get("id")
+                )
+                # Extract callId (support multiple formats)
+                call_id = (
+                    job_data.get("call_id")
+                    or job_data.get("callId")
+                )
+                # Fallback: if metadata is just a string and not JSON, use it as agent_id
                 if not agent_id:
-                    agent_id = job_metadata if isinstance(job_metadata, str) else str(job_metadata)
-            except Exception as e:
-                print(f"[AGENT] Error parsing metadata: {e}")
-                # If parsing fails, use metadata directly as agent_id
-                agent_id = job_metadata if isinstance(job_metadata, str) else str(job_metadata)
-        
-        # Fetch agent configuration from API
+                    agent_id = (
+                        job_metadata
+                        if isinstance(job_metadata, str)
+                        else str(job_metadata)
+                    )
+            except Exception:
+                # If JSON parsing fails, treat metadata as plain string (backward compatibility)
+                agent_id = (
+                    job_metadata if isinstance(job_metadata, str) else str(job_metadata)
+                )
+
+        # Log parsed metadata
+        print(f"[AGENT] Agent ID: {agent_id}")
+        print(f"[AGENT] Call ID: {call_id if call_id else 'None'}")
+
+        # Fetch agent configuration
         config = None
         if agent_id:
             try:
                 config = await fetch_agent_config(agent_id)
             except Exception as e:
                 print(f"[AGENT] Error fetching config: {e}")
-                import traceback
-                traceback.print_exc()
-        
-        # Extract system_prompt and voice_id from config, or use defaults
+
+        # Extract config values
         system_prompt = config.get("system_prompt") if config else None
-        voice_id = config.get("voice_id", "c961b81c-a935-4c17-bfb3-ba2239de8c2f") if config else "c961b81c-a935-4c17-bfb3-ba2239de8c2f"
-        
-        if system_prompt:
-            agent_instructions = system_prompt
+        agent_instructions = system_prompt if system_prompt else DEFAULT_INSTRUCTIONS
+
+        # Voice configuration - use a known working Cartesia voice as default
+        # Cartesia voice IDs for sonic-3 model
+        DEFAULT_CARTESIA_VOICE = "c961b81c-a935-4c17-bfb3-ba2239de8c2f"  # "Kyle" voice (American English)
+
+        voice_id = None
+        if config:
+            voice_id = config.get("voice_id")
+
+        # Validate voice_id - must be non-empty string
+        if not voice_id or not isinstance(voice_id, str) or len(voice_id.strip()) == 0:
+            voice_id = DEFAULT_CARTESIA_VOICE
+            print(f"[AGENT] Using default Cartesia voice: {voice_id}")
         else:
-            # Fallback to default instructions
-            agent_instructions = dedent("""
-            ### ROLE
-            You are a potential customer interested in real estate. You are currently receiving a phone call from a sales agent at a Real Estate Brokerage.
+            print(f"[AGENT] Using configured voice: {voice_id}")
 
-            ### CONTEXT
-            You recently visited the brokerage's website or social media page and filled out a "More Information" form regarding a property or general investment opportunities. Because of this, you are considered a "warm lead," but you are not yet sold on a specific deal.
+        # Initialize transcript tracker
+        room_id = ctx.room.name if ctx.room else None
 
-            ### BEHAVIORAL GUIDELINES
-            1.  **Voice & Tone:** Speak casually and naturally. Use conversational fillers occasionally (e.g., "um," "well," "let me think"). Do not sound like an AI assistant; sound like a human on the phone.
-            2.  **Length:** Keep your responses relatively short (1-3 sentences). People rarely give long monologues on sales calls.
-            3.  **Information release:** Do not volunteer all your information (budget, timeline, needs) immediately. Make the salesperson ask the right questions to uncover them.
-            4.  **Skepticism:** Start the call slightly guarded or busy. You "showed interest," but you might have forgotten filling out the form, or you might be busy right now. Warm up only if the salesperson builds rapport.
-            5.  **Objections:** Introduce realistic objections naturally. Examples:
-                * "I'm just looking right now."
-                * "I'm actually really busy, can you make this quick?"
-                * "The prices seem really high in that area."
+        worker_config = UploadWorkerConfig(
+            max_queue_size=100,
+            shutdown_timeout=30.0,
+            poll_interval=1.0,
+        )
 
-            ### RULES OF ENGAGEMENT
-            * **You are the CUSTOMER, not the assistant.** Never offer to help the salesperson.
-            * **Never break character.** Do not mention you are an AI or act like the sales person
-            * **End of Call:** If the salesperson is rude or aggressive, say you have to go and "hang up" (stop responding or say [HANGS UP]). If they do a good job, agree to a next step (e.g., a site visit or Zoom meeting).
+        tracker = TranscriptTracker(
+            upload_callback=upload_transcript,
+            transcript_timeout=5.0,
+            worker_config=worker_config,
+            room_id=room_id,
+            agent_id=agent_id,
+        )
 
-            ### CURRENT GOAL
-            Your goal is to determine if this agent is trustworthy and if they actually have inventory that matches your specific needs (based on the Persona).
+        await tracker.start()
 
-            ### START
-            Await the opening line from the Salesperson.
-        """).strip()
-        
-        # Create agent with dynamic instructions
+        # Create agent and session
         dynamic_agent = Agent(instructions=agent_instructions)
-        
-        # Configure TTS voice from API config
-        # Use voice_id directly from API - backend will send the correct voice name
-        voice_name = voice_id if voice_id else "en-US-Chirp3-HD-Achird"
-        
-        # Google Cloud credentials
-        credentials_info = None
-        credentials_file = None
-        
-        # First, try to get credentials from environment variable (for deployment)
-        # This is the preferred method for cloud deployments
-        google_creds_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
-        if google_creds_json:
-            try:
-                import json
-                creds_data = json.loads(google_creds_json)
-                
-                # Validate required fields
-                required_fields = ["type", "project_id", "private_key", "client_email"]
-                if (all(field in creds_data for field in required_fields) and
-                    creds_data.get("type") == "service_account" and
-                    creds_data.get("private_key") and creds_data["private_key"].strip()):
-                    
-                    # Fix escaped newlines if present
-                    private_key = creds_data["private_key"]
-                    if "\\n" in private_key and "\n" not in private_key:
-                        private_key = private_key.replace("\\n", "\n")
-                        creds_data["private_key"] = private_key
-                    
-                    # Validate key can be parsed
-                    if "BEGIN" in private_key and "END" in private_key:
-                        try:
-                            from google.oauth2 import service_account
-                            service_account.Credentials.from_service_account_info(creds_data)
-                            credentials_info = creds_data.copy()
-                        except Exception:
-                            credentials_info = None
-            except Exception:
-                credentials_info = None
-        
-        # If not from env var, check for credentials file
-        if not credentials_info:
-            credentials_file = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-            
-            if not credentials_file:
-                import pathlib
-                current_file = pathlib.Path(__file__).resolve()
-                project_root = current_file.parent.parent
-                default_creds_file = project_root / "tts-simulation-56fb5a8ca3f3.json"
-                
-                if default_creds_file.exists():
-                    credentials_file = str(default_creds_file)
-                else:
-                    cwd = pathlib.Path.cwd()
-                    cwd_creds_file = cwd / "tts-simulation-56fb5a8ca3f3.json"
-                    if cwd_creds_file.exists():
-                        credentials_file = str(cwd_creds_file)
-            
-            if credentials_file and os.path.exists(credentials_file):
-                try:
-                    import json
-                    with open(credentials_file, 'r') as f:
-                        creds_data = json.load(f)
-                    
-                    # Validate required fields
-                    required_fields = ["type", "project_id", "private_key", "client_email"]
-                    if (all(field in creds_data for field in required_fields) and
-                        creds_data.get("type") == "service_account" and
-                        creds_data.get("private_key") and creds_data["private_key"].strip()):
-                        
-                        # Fix escaped newlines if present
-                        private_key = creds_data["private_key"]
-                        if "\\n" in private_key and "\n" not in private_key:
-                            private_key = private_key.replace("\\n", "\n")
-                            creds_data["private_key"] = private_key
-                        
-                        # Validate key can be parsed
-                        if "BEGIN" in private_key and "END" in private_key:
-                            try:
-                                from google.oauth2 import service_account
-                                service_account.Credentials.from_service_account_info(creds_data)
-                                credentials_info = creds_data.copy()
-                                credentials_file = None
-                            except Exception:
-                                credentials_file = None
-                                credentials_info = None
-                        else:
-                            credentials_file = None
-                    else:
-                        credentials_file = None
-                except Exception:
-                    credentials_file = None
-        
-        if not credentials_info and not credentials_file:
-            print("[AGENT] WARNING: No Google Cloud credentials found. Using Application Default Credentials.")
-        
         openai_key = os.getenv("OPENAI_API_KEY")
-        
-        # Create session
-        try:
-            stt_kwargs = {
-                "languages": "en-US",
-                "spoken_punctuation": False,
-            }
-            if credentials_info:
-                stt_kwargs["credentials_info"] = credentials_info
-            elif credentials_file:
-                stt_kwargs["credentials_file"] = credentials_file
-            
-            stt_instance = google.STT(**stt_kwargs)
-            
-            llm_instance = openai.LLM(
-                model="gpt-4o-mini",
-                api_key=openai_key,
-            )
-            
-            tts_kwargs = {
-                "voice_name": voice_name,
-                "language": "en-US",
-                "speaking_rate": 1.15,
-            }
-            if credentials_info:
-                tts_kwargs["credentials_info"] = credentials_info
-            elif credentials_file:
-                tts_kwargs["credentials_file"] = credentials_file
-            
-            tts_instance = google.TTS(**tts_kwargs)
-            
-            session = AgentSession(
-                stt=stt_instance,
-                llm=llm_instance,
-                tts=tts_instance,
-                turn_detection=MultilingualModel(),  # type: ignore
-                vad=ctx.proc.userdata["vad"],
-                preemptive_generation=True,
-            )
-        except Exception as e:
-            print(f"[AGENT] ERROR creating session: {e}")
-            import traceback
-            traceback.print_exc()
-            raise
-        
-        noise_cancellation_option = noise_cancellation.BVC()
+
+        stt_instance = inference.STT(
+            model="assemblyai/universal-streaming",
+            language="en",
+        )
+
+        llm_instance = openai.LLM(
+            model="gpt-4o-mini",
+            api_key=openai_key,
+        )
+
+        tts_instance = inference.TTS(
+            model="cartesia/sonic-3",
+            voice="c961b81c-a935-4c17-bfb3-ba2239de8c2f",
+        )
+
+        session = AgentSession(
+            stt=stt_instance,
+            llm=llm_instance,
+            tts=tts_instance,
+            turn_detection=MultilingualModel(),
+            vad=ctx.proc.userdata["vad"],
+        )
+
+        # Setup event handlers
+        setup_transcript_tracking(session, tracker)
+
+        @ctx.room.on("disconnected")
+        def on_room_disconnected():
+            disconnect_event.set()
+
+        @ctx.room.on("participant_disconnected")
+        def on_participant_disconnected(participant: rtc.RemoteParticipant):
+            disconnect_event.set()
+
+        @session.on("close")
+        def on_session_close():
+            disconnect_event.set()
+
+        # Start session
         warmup_task = asyncio.create_task(warmup_llm(session.llm, agent_instructions))
-        
-        try:
-            await session.start(
-                agent=dynamic_agent,
-                room=ctx.room,
-                room_input_options=RoomInputOptions(
-                    noise_cancellation=noise_cancellation_option,
-                ),
-            )
-        except Exception as e:
-            print(f"[AGENT] ERROR starting session: {e}")
-            import traceback
-            traceback.print_exc()
-            raise
-        
-        try:
-            await ctx.connect()
-        except Exception as e:
-            print(f"[AGENT] ERROR connecting to room: {e}")
-            import traceback
-            traceback.print_exc()
-            raise
+
+        await session.start(
+            agent=dynamic_agent,
+            room=ctx.room,
+            room_input_options=RoomInputOptions(
+                noise_cancellation=noise_cancellation.BVC(),
+            ),
+        )
+
+        await ctx.connect()
+
+        # After connection, try to get room metadata (contains both agentId and callId)
+        if ctx.room:
+            try:
+                room_metadata = None
+                if hasattr(ctx.room, "metadata"):
+                    room_metadata = ctx.room.metadata
+                    print(f"[AGENT] Room metadata: {room_metadata}")
+                
+                if room_metadata:
+                    try:
+                        room_data = (
+                            json.loads(room_metadata)
+                            if isinstance(room_metadata, str)
+                            else room_metadata
+                        )
+                        # Extract agentId from room metadata (prefer room metadata over job metadata)
+                        room_agent_id = (
+                            room_data.get("agent_id")
+                            or room_data.get("agentId")
+                            or room_data.get("uuid")
+                            or room_data.get("id")
+                        )
+                        # Extract callId from room metadata
+                        room_call_id = (
+                            room_data.get("call_id")
+                            or room_data.get("callId")
+                        )
+                        
+                        # Update values if found in room metadata
+                        if room_agent_id:
+                            agent_id = room_agent_id
+                        if room_call_id:
+                            call_id = room_call_id
+                            
+                        print(f"[AGENT] Updated from room metadata - Agent ID: {agent_id}, Call ID: {call_id if call_id else 'None'}")
+                    except Exception as e:
+                        print(f"[AGENT] Error parsing room metadata: {e}")
+                else:
+                    print(f"[AGENT] Room metadata not available (hasattr check: {hasattr(ctx.room, 'metadata')})")
+            except Exception as e:
+                print(f"[AGENT] Error accessing room metadata: {e}")
 
         try:
             await warmup_task
         except Exception:
-            pass  # Warmup is optional, failure is non-critical
+            pass
 
         try:
             await ctx.room.local_participant.publish_data(
@@ -399,12 +465,24 @@ async def entrypoint(ctx: JobContext):
                 reliable=True,
             )
         except Exception:
-            pass  # Non-critical event, agent can function without it
+            pass
+
+        # Wait for disconnect
+        await disconnect_event.wait()
+
     except Exception as e:
         print(f"[AGENT] FATAL ERROR: {e}")
         import traceback
+
         traceback.print_exc()
         raise
+
+    finally:
+        if tracker:
+            try:
+                await tracker.stop()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

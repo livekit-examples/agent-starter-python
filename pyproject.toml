@@ -13,6 +13,7 @@ dependencies = [
     "livekit-plugins-noise-cancellation~=0.2",
     "livekit-plugins-google",
     "livekit-plugins-openai",
+    "livekit-plugins-assemblyai",
     "python-dotenv",
     "httpx",
 ]
