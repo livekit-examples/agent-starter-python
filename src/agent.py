@@ -1,6 +1,7 @@
 import json
 import asyncio
 import os
+from datetime import datetime
 from textwrap import dedent
 from typing import Dict, Any
 from dotenv import load_dotenv
@@ -337,24 +338,9 @@ async def entrypoint(ctx: JobContext):
         else:
             print(f"[AGENT] Using configured voice: {voice_id}")
 
-        # Initialize transcript tracker
-        room_id = ctx.room.name if ctx.room else None
-
-        worker_config = UploadWorkerConfig(
-            max_queue_size=100,
-            shutdown_timeout=30.0,
-            poll_interval=1.0,
-        )
-
-        tracker = TranscriptTracker(
-            upload_callback=upload_transcript,
-            transcript_timeout=5.0,
-            worker_config=worker_config,
-            room_id=room_id,
-            agent_id=agent_id,
-        )
-
-        await tracker.start()
+        # Initialize transcript tracker (will be created after room connection)
+        tracker = None
+        room_id = None  # Will be set after connection
 
         # Create agent and session
         dynamic_agent = Agent(instructions=agent_instructions)
@@ -383,8 +369,8 @@ async def entrypoint(ctx: JobContext):
             vad=ctx.proc.userdata["vad"],
         )
 
-        # Setup event handlers
-        setup_transcript_tracking(session, tracker)
+        # Setup event handlers (tracker will be set up after initialization)
+        # setup_transcript_tracking(session, tracker)  # Moved after tracker creation
 
         @ctx.room.on("disconnected")
         def on_room_disconnected():
@@ -410,6 +396,9 @@ async def entrypoint(ctx: JobContext):
         )
 
         await ctx.connect()
+
+        # Capture call start time for relative timestamps
+        call_start_time = datetime.utcnow()
 
         # After connection, try to get room metadata (contains both agentId and callId)
         if ctx.room:
@@ -452,6 +441,34 @@ async def entrypoint(ctx: JobContext):
                     print(f"[AGENT] Room metadata not available (hasattr check: {hasattr(ctx.room, 'metadata')})")
             except Exception as e:
                 print(f"[AGENT] Error accessing room metadata: {e}")
+
+        # Initialize transcript tracker after room connection and metadata parsing
+        room_id = ctx.room.name if ctx.room else None
+        
+        # Validate call_id is available (mandatory)
+        if not call_id:
+            raise ValueError("call_id is required but could not be determined from metadata")
+        
+        worker_config = UploadWorkerConfig(
+            max_queue_size=100,
+            shutdown_timeout=30.0,
+            poll_interval=1.0,
+        )
+
+        tracker = TranscriptTracker(
+            upload_callback=upload_transcript,
+            call_id=call_id,  # Mandatory - guaranteed to be set from room metadata
+            call_start_time=call_start_time,  # Call start time for relative timestamps
+            transcript_timeout=5.0,
+            worker_config=worker_config,
+            room_id=room_id,
+            agent_id=agent_id,
+        )
+
+        await tracker.start()
+        
+        # Setup transcript tracking event handlers now that tracker exists
+        setup_transcript_tracking(session, tracker)
 
         try:
             await warmup_task

@@ -18,6 +18,27 @@ from upload_worker import UploadWorker, UploadWorkerConfig
 logger = logging.getLogger(__name__)
 
 
+def format_relative_time(seconds: float) -> str:
+    """
+    Format seconds since call start as HH:MM:SS.Millis.
+    
+    Args:
+        seconds: Total seconds since call start (can be fractional)
+    
+    Returns:
+        Formatted string like "00:01:23.456"
+    """
+    if seconds < 0:
+        seconds = 0.0
+    
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    millis = int((seconds % 1) * 1000)
+    
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
+
+
 class SessionState(Enum):
     """State machine for transcript sessions."""
     SPEAKING = auto()      # Speech in progress
@@ -32,22 +53,29 @@ class TranscriptSession:
 
     session_id: str
     role: str  # "user" or "agent"
-    start_time: float
-    start_time_iso: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    end_time: Optional[float] = None
-    end_time_iso: Optional[str] = None
+    start_time: str  # UTC ISO format string
+    call_id: str  # Mandatory call ID
+    end_time: Optional[str] = None  # UTC ISO format string
     transcript: Optional[str] = None
     state: SessionState = SessionState.SPEAKING
     room_id: Optional[str] = None
     agent_id: Optional[str] = None
+    relative_start_time: Optional[str] = None  # HH:MM:SS.Millis format
+    relative_end_time: Optional[str] = None  # HH:MM:SS.Millis format
 
     # Event that fires when session becomes complete
     _completion_event: asyncio.Event = field(default_factory=asyncio.Event)
 
-    def end_speech(self):
+    def end_speech(self, call_start_time: datetime):
         """Mark speech as ended and transition state."""
-        self.end_time = time.time()
-        self.end_time_iso = datetime.utcnow().isoformat()
+        # Get UTC time
+        utc_now = datetime.utcnow()
+        self.end_time = utc_now.isoformat() + 'Z'  # UTC ISO format with Z suffix
+        
+        # Calculate relative end time
+        if call_start_time:
+            delta = utc_now - call_start_time
+            self.relative_end_time = format_relative_time(delta.total_seconds())
 
         if self.transcript is not None:
             self._mark_complete()
@@ -88,21 +116,34 @@ class TranscriptSession:
     @property
     def duration(self) -> Optional[float]:
         if self.end_time and self.start_time:
-            return self.end_time - self.start_time
+            try:
+                # Parse ISO format strings to calculate duration
+                start_dt = datetime.fromisoformat(self.start_time.replace('Z', '+00:00'))
+                end_dt = datetime.fromisoformat(self.end_time.replace('Z', '+00:00'))
+                delta = end_dt - start_dt
+                return delta.total_seconds()
+            except (ValueError, AttributeError):
+                return None
         return None
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "session_id": self.session_id,
-            "type": self.role,
+        result = {
+            "call_id": self.call_id,
+            "speaker": self.role,
             "transcript": self.transcript or "",
-            "start_time": self.start_time_iso,
-            "end_time": self.end_time_iso or self.start_time_iso,
+            "start_time": self.start_time,  # UTC ISO format string
+            "end_time": self.end_time or self.start_time,  # UTC ISO format string (fallback to start_time if not set)
             "duration": self.duration,
-            "has_transcript": self.transcript is not None,
-            "room_id": self.room_id,
-            "agent_id": self.agent_id,
         }
+        
+        # Only include relative timestamps if they are available
+        if self.relative_start_time is not None:
+            result["relative_start_time"] = self.relative_start_time
+        
+        if self.relative_end_time is not None:
+            result["relative_end_time"] = self.relative_end_time
+        
+        return result
 
 
 class TranscriptTracker:
@@ -118,24 +159,36 @@ class TranscriptTracker:
     def __init__(
         self,
         upload_callback: Callable[[Dict[str, Any]], Any],
+        call_id: str,  # Mandatory call ID
+        call_start_time: datetime,  # Call start time for relative timestamps
         transcript_timeout: float = 5.0,
         worker_config: Optional[UploadWorkerConfig] = None,
         room_id: Optional[str] = None,
         agent_id: Optional[str] = None,
-    ):
+    ) -> None:
         """
         Initialize the transcript tracker.
 
         Args:
             upload_callback: Function to call for uploads. Can be sync or async.
+            call_id: Call ID for tracking (required).
+            call_start_time: Call start time (required for relative timestamps).
             transcript_timeout: Seconds to wait for transcript after speech ends.
             worker_config: Configuration for the upload worker.
             room_id: Optional room ID for tracking.
             agent_id: Optional agent ID for tracking.
         """
+        if not call_id:
+            raise ValueError("call_id is required and cannot be None")
+        
+        if not call_start_time:
+            raise ValueError("call_start_time is required and cannot be None")
+        
         self.transcript_timeout = transcript_timeout
         self.room_id = room_id
         self.agent_id = agent_id
+        self.call_id = call_id
+        self.call_start_time = call_start_time  # Store call start time
 
         # Session storage
         self._sessions: Dict[str, TranscriptSession] = {}
@@ -185,13 +238,24 @@ class TranscriptTracker:
 
     def _create_session(self, role: str) -> TranscriptSession:
         """Create a new session with unique ID."""
-        session_id = f"{role}_{uuid.uuid4().hex[:8]}_{int(time.time() * 1000)}"
+        # Get UTC time
+        utc_now = datetime.utcnow()
+        utc_iso = utc_now.isoformat() + 'Z'  # ISO format with Z suffix for UTC
+        utc_epoch = utc_now.timestamp()  # For session_id generation
+        
+        # Calculate relative start time
+        delta = utc_now - self.call_start_time
+        relative_start = format_relative_time(delta.total_seconds())
+        
+        session_id = f"{role}_{uuid.uuid4().hex[:8]}_{int(utc_epoch * 1000)}"
         session = TranscriptSession(
             session_id=session_id,
             role=role,
-            start_time=time.time(),
+            start_time=utc_iso,  # UTC ISO format string
+            relative_start_time=relative_start,  # HH:MM:SS.Millis format
             room_id=self.room_id,
             agent_id=self.agent_id,
+            call_id=self.call_id,
         )
         self._sessions[session_id] = session
         return session
@@ -218,8 +282,15 @@ class TranscriptTracker:
                         self._sessions.pop(session.session_id, None)
                         return
                 else:
-                    # Completed successfully, upload
-                    await self._upload_worker.enqueue(session)
+                    # Completed successfully, upload only if transcript exists
+                    if session.transcript:
+                        await self._upload_worker.enqueue(session)
+                    else:
+                        # No transcript, skip upload and remove session
+                        logger.warning(
+                            f"Skipping upload for completed session {session.session_id} - no transcript"
+                        )
+                        self._sessions.pop(session.session_id, None)
 
             except asyncio.CancelledError:
                 pass
@@ -252,11 +323,18 @@ class TranscriptTracker:
             logger.error(f"Session {session_id} not found")
             return None
 
-        session.end_speech()
+        session.end_speech(self.call_start_time)
 
         # If already complete (transcript arrived first), queue immediately
         if session.is_complete():
-            asyncio.create_task(self._upload_worker.enqueue(session))
+            # Validate transcript exists before uploading
+            if session.transcript:
+                asyncio.create_task(self._upload_worker.enqueue(session))
+            else:
+                logger.warning(
+                    f"Skipping upload for completed session {session_id} - no transcript"
+                )
+                self._sessions.pop(session_id, None)
         else:
             # Otherwise schedule timeout
             self._schedule_timeout(session)
@@ -277,8 +355,13 @@ class TranscriptTracker:
             logger.warning("Creating session for late user transcript")
             session = self._create_session("user")
             session.set_transcript(transcript)
-            session.end_speech()
-            asyncio.create_task(self._upload_worker.enqueue(session))
+            session.end_speech(self.call_start_time)
+            # Validate transcript exists before uploading
+            if session.transcript:
+                asyncio.create_task(self._upload_worker.enqueue(session))
+            else:
+                logger.warning(f"Skipping upload for late user transcript session - no transcript")
+                self._sessions.pop(session.session_id, None)
             return session.session_id
 
         session = self._sessions.get(session_id)
@@ -311,11 +394,20 @@ class TranscriptTracker:
             logger.error(f"Session {session_id} not found")
             return None
 
-        session.end_speech()
+        session.end_speech(self.call_start_time)
 
+        # If already complete (transcript arrived first), queue immediately
         if session.is_complete():
-            asyncio.create_task(self._upload_worker.enqueue(session))
+            # Validate transcript exists before uploading
+            if session.transcript:
+                asyncio.create_task(self._upload_worker.enqueue(session))
+            else:
+                logger.warning(
+                    f"Skipping upload for completed session {session_id} - no transcript"
+                )
+                self._sessions.pop(session_id, None)
         else:
+            # Otherwise schedule timeout
             self._schedule_timeout(session)
 
         logger.debug(f"Ended agent session: {session_id}")
@@ -332,8 +424,13 @@ class TranscriptTracker:
             logger.warning("Creating session for late agent transcript")
             session = self._create_session("agent")
             session.set_transcript(transcript)
-            session.end_speech()
-            asyncio.create_task(self._upload_worker.enqueue(session))
+            session.end_speech(self.call_start_time)
+            # Validate transcript exists before uploading
+            if session.transcript:
+                asyncio.create_task(self._upload_worker.enqueue(session))
+            else:
+                logger.warning(f"Skipping upload for late agent transcript session - no transcript")
+                self._sessions.pop(session.session_id, None)
             return session.session_id
 
         session = self._sessions.get(session_id)
