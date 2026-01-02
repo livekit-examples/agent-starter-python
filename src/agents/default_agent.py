@@ -10,10 +10,8 @@ class DefaultAgent(Agent):
     async def on_user_turn_completed(
         self, turn_ctx: ChatContext, new_message: ChatMessage
     ) -> None:
-        print(f"[DefaultAgent] turn_ctx: {[m.role + ': ' + (m.text_content or '') for m in turn_ctx.items]}")
         recent_utterances = extract_recent_utterances(turn_ctx, count=4)
         current_utterance = new_message.text_content or ""
-        print(f"[DefaultAgent] recent_utterances: {recent_utterances}")
         # TODO: use recent_utterances + current_utterance for context fetch
 
 
