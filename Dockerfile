@@ -36,23 +36,25 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy just the dependency files first, for more efficient layer caching
-COPY pyproject.toml uv.lock ./
-RUN mkdir -p src
+COPY --chown=appuser:appuser pyproject.toml uv.lock ./
+RUN mkdir -p src && chown -R appuser:appuser /app
 
 # Install Python dependencies using UV's lock file
 # --locked ensures we use exact versions from uv.lock for reproducible builds
 # This creates a virtual environment and installs all dependencies
 # Ensure your uv.lock file is checked in for consistency across environments
+# Switch to appuser before installing to avoid needing chown later
+USER appuser
 RUN uv sync --locked
+
+# Switch back to root to copy files, then set ownership
+USER root
 
 # Copy all remaining application files into the container
 # This includes source code, configuration files, and dependency specifications
 # (Excludes files specified in .dockerignore)
-COPY . .
-
-# Change ownership of all app files to the non-privileged user
-# This ensures the application can read/write files as needed
-RUN chown -R appuser:appuser /app
+# Using --chown to set ownership during copy (much faster than chown -R later)
+COPY --chown=appuser:appuser . .
 
 # Switch to the non-privileged user for all subsequent operations
 # This improves security by not running as root
