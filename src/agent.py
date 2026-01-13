@@ -4,6 +4,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 from agent_config import fetch_agent_config
+from call_recording_service import CallRecordingService
 from transcript_tracker import TranscriptTracker
 from upload_transcript import upload_transcript
 from upload_worker import UploadWorkerConfig
@@ -25,7 +26,6 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 load_dotenv(".env.local")
 
-
 server = AgentServer()
 server.setup_fnc = prewarm
 
@@ -34,9 +34,12 @@ server.setup_fnc = prewarm
 async def entrypoint(ctx: JobContext):
     tracker = None
     disconnect_event = asyncio.Event()
+    call_recording_service = None
+    recording_result = None
 
     try:
-        job_meta = parse_metadata(ctx.job.metadata if hasattr(ctx, "job") and ctx.job and hasattr(ctx.job, "metadata") else None)
+        job_meta = parse_metadata(
+            ctx.job.metadata if hasattr(ctx, "job") and ctx.job and hasattr(ctx.job, "metadata") else None)
         print(f"[AGENT] Job metadata - Agent ID: {job_meta['agent_id']}, Call ID: {job_meta['call_id']}")
 
         config = None
@@ -121,6 +124,21 @@ async def entrypoint(ctx: JobContext):
             agent_id=agent_id,
         )
 
+        print(f"[AGENT] About to start recording for room: {ctx.room.name}")
+        call_recording_service = CallRecordingService()
+        try:
+            recording_result = await call_recording_service.start_recording(
+                room_name=call_id,
+                session_id=call_id,
+                upload_mp3=False,
+            )
+            print(
+                f"[AGENT] Recording started: egress_id={recording_result.egress_id}, s3_key={recording_result.s3_key}")
+        except Exception as e:
+            print(f"[AGENT] FATAL ERROR WHILE STARTING CALL RECORDING: {e}")
+            import traceback
+            traceback.print_exc()
+
         await tracker.start()
         setup_transcript_tracking(session, tracker)
 
@@ -153,6 +171,12 @@ async def entrypoint(ctx: JobContext):
             except Exception:
                 pass
 
+        if call_recording_service and recording_result:
+            try:
+                await call_recording_service.stop_recording(recording_result.egress_id)
+                print(f"[AGENT] Recording stopped")
+            except Exception as e:
+                print(f"[AGENT] Error stopping recording: {e}")
 
 if __name__ == "__main__":
     cli.run_app(server())
