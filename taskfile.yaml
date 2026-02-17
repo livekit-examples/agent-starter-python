@@ -30,8 +30,8 @@ tasks:
       - test -z "$LIVEKIT_AGENT_NAME"
     cmds:
       - |
-        old="WorkerOptions("
-        new="WorkerOptions(agent_name=\"{{ .LIVEKIT_AGENT_NAME }}\", "
+        old='agent_name="my-agent"'
+        new='agent_name="{{ .LIVEKIT_AGENT_NAME }}"'
         file="{{ .PYTHON_MAIN }}"
         tmp="$(mktemp)"
         while IFS= read -r line; do
