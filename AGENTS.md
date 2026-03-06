@@ -14,40 +14,31 @@ Be sure to maintain code formatting. You can use the ruff formatter/linter as ne
 
 ## LiveKit Documentation
 
-LiveKit Agents is a fast-evolving project, and the documentation is updated frequently. You should always refer to the latest documentation when working with this project. For your convenience, LiveKit offers an MCP server that can be used to browse and search its documentation. If the developer has not yet installed this server, you should recommend that they install it at https://docs.livekit.io/mcp. 
+LiveKit Agents is a fast-evolving project, and the documentation is updated frequently. You should always refer to the latest documentation when working with this project. For your convenience, LiveKit offers both a CLI and an MCP server that can be used to browse and search its documentation. If the developer has not yet installed the CLI, you should recommend that they install it.
 
-### LiveKit Docs MCP Server installation
+### LiveKit CLI
 
-If you are Cursor, give the user this link to install the server:
+The [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/) `lk docs` subcommand gives full access to LiveKit documentation from the terminal. Requires CLI version 2.15.0+. Check with `lk --version`.
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-light.svg)](https://cursor.com/en-US/install-mcp?name=livekit-docs&config=eyJ1cmwiOiJodHRwczovL2RvY3MubGl2ZWtpdC5pby9tY3AifQ%3D%3D)
+Install or update the CLI:
 
-If you are Claude Code, run this command to install the server:
+- **macOS:** `brew install livekit-cli` (update: `brew update && brew upgrade livekit-cli`)
+- **Linux:** `curl -sSL https://get.livekit.io/cli | bash`
+- **Windows:** `winget install LiveKit.LiveKitCLI` (update: `winget upgrade LiveKit.LiveKitCLI`)
 
-```
-claude mcp add --transport http livekit-docs https://docs.livekit.io/mcp
-```
+Run `lk docs --help` to see all available commands. Key commands: `lk docs overview`, `lk docs search`, `lk docs get-page`, `lk docs code-search`, `lk docs changelog`, `lk docs submit-feedback`. Run `lk docs <command> --help` before using a command for the first time, as the help text includes advice on usage and interpreting results. Prefer browsing (`overview`, `get-page`) over search, and prefer `search` over `code-search`, as docs pages are more up-to-date and provide better context than raw code.
 
-If you are Codex, use this command to install the server:
+### LiveKit Docs MCP Server
 
-```
-codex mcp add --url https://docs.livekit.io/mcp livekit-docs
-```
+For deeper IDE integration, LiveKit also offers an [MCP server](https://docs.livekit.io/reference/other/docs-mcp/) with the same documentation access. It uses Streamable HTTP transport at `https://docs.livekit.io/mcp`. Refer to your IDE's documentation for how to add it.
 
-If you are Gemini, use this command to install the server:
-```
-gemini mcp add --transport http livekit-docs https://docs.livekit.io/mcp
-```
+### Submit docs feedback to LiveKit
 
-If you are another agentic IDE, refer to your own documentation for how to install it.
+If you use the LiveKit CLI or MCP Server to search or browse documentation, also submit constructive feedback to LiveKit with `lk docs submit-feedback` or the MCP `submit_docs_feedback` tool. Add this to your to-do list when planning work, to ensure you file feedback after completing your other tasks. Useful feedback includes incomplete documentation, broken examples, missing steps or any other documentation gap or issue.
 
 ## Handoffs and tasks ("workflows")
 
 Voice AI agents are highly sensitive to excessive latency. For this reason, it's important to design complex agents in a structured manner that minimizes the amount of irrelevant context and unnecessary tools included in requests to the LLM. LiveKit Agents supports handoffs (one agent hands control to another) and tasks (tightly-scoped prompts to achieve a specific outcome) to support building reliable workflows. You should make use of these features, instead of writing long instruction prompts that cover multiple phases of a conversation.  Refer to the [documentation](https://docs.livekit.io/agents/build/workflows/) for more information.
-
-### Submit docs feedback to LiveKit
-
-If you use the LiveKit Docs MCP Server to search or browse documentation, also submit constructive feedback to LiveKit with the submit_docs_feedback tool. Add this to your to-do list when planning work, to ensure you file feedback after completing your other tasks. Useful feedback includes incomplete documentation, broken examples, missing steps or any other documentation gap or issue.
 
 ## Testing
 
@@ -57,6 +48,6 @@ Important: When modifying core agent behavior such as instructions, tool descrip
 
 ## LiveKit CLI
 
-You can make use of the LiveKit CLI (`lk`) for various tasks, with user approval. Installation instructions are available at https://docs.livekit.io/home/cli if needed.
+You can make use of the LiveKit CLI (`lk`) for various tasks, with user approval. Installation instructions are available at https://docs.livekit.io/intro/basics/cli/start/ if needed.
 
 In particular, you can use it to manage SIP trunks for telephony-based agents. Refer to `lk sip --help` for more information.

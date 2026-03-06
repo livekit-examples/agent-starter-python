@@ -19,33 +19,40 @@ The starter project includes:
 
 This starter app is compatible with any [custom web/mobile frontend](https://docs.livekit.io/agents/start/frontend/) or [SIP-based telephony](https://docs.livekit.io/agents/start/telephony/).
 
-## Coding agents and MCP
+## Using coding agents
 
-This project is designed to work with coding agents like [Cursor](https://www.cursor.com/) and [Claude Code](https://www.anthropic.com/claude-code). 
+This project is designed to work with coding agents like [Claude Code](https://claude.com/product/claude-code), [Cursor](https://www.cursor.com/), and [Codex](https://openai.com/codex/).
 
-To get the most out of these tools, install the [LiveKit Docs MCP server](https://docs.livekit.io/mcp).
+For your convenience, LiveKit offers both a CLI and an [MCP server](https://docs.livekit.io/reference/other/docs-mcp/) that can be used to browse and search its documentation. The [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/) (`lk docs`) works with any coding agent that can run shell commands. Install it for your platform:
 
-For Cursor, use this link:
+**macOS:**
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-light.svg)](https://cursor.com/en-US/install-mcp?name=livekit-docs&config=eyJ1cmwiOiJodHRwczovL2RvY3MubGl2ZWtpdC5pby9tY3AifQ%3D%3D)
-
-For Claude Code, run this command:
-
-```
-claude mcp add --transport http livekit-docs https://docs.livekit.io/mcp
+```console
+brew install livekit-cli
 ```
 
-For Codex CLI, use this command to install the server:
-```
-codex mcp add --url https://docs.livekit.io/mcp livekit-docs
+**Linux:**
+
+```console
+curl -sSL https://get.livekit.io/cli | bash
 ```
 
-For Gemini CLI, use this command to install the server:
-```
-gemini mcp add --transport http livekit-docs https://docs.livekit.io/mcp
+**Windows:**
+
+```console
+winget install LiveKit.LiveKitCLI
 ```
 
-The project includes a complete [AGENTS.md](AGENTS.md) file for these assistants. You can modify this file  your needs. To learn more about this file, see [https://agents.md](https://agents.md).
+The `lk docs` subcommand requires version 2.15.0 or higher. Check your version with `lk --version` and update if needed. Once installed, your coding agent can search and browse LiveKit documentation directly from the terminal:
+
+```console
+lk docs search "voice agents"
+lk docs get-page /agents/start/voice-ai-quickstart
+```
+
+See the [Using coding agents](https://docs.livekit.io/intro/coding-agents/) guide for more details, including MCP server setup.
+
+The project includes a complete [AGENTS.md](AGENTS.md) file for these assistants. You can modify this file to suit your needs. To learn more about this file, see [https://agents.md](https://agents.md).
 
 ## Dev Setup
 
@@ -62,7 +69,7 @@ Sign up for [LiveKit Cloud](https://cloud.livekit.io/) then set up the environme
 - `LIVEKIT_API_KEY`
 - `LIVEKIT_API_SECRET`
 
-You can load the LiveKit environment automatically using the [LiveKit CLI](https://docs.livekit.io/home/cli/cli-setup):
+You can load the LiveKit environment automatically using the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/start/):
 
 ```bash
 lk cloud auth
@@ -107,7 +114,7 @@ Get started quickly with our pre-built frontend starter apps, or add telephony s
 | **React Native** | [`livekit-examples/voice-assistant-react-native`](https://github.com/livekit-examples/voice-assistant-react-native) | Native mobile app with React Native & Expo |
 | **Android** | [`livekit-examples/agent-starter-android`](https://github.com/livekit-examples/agent-starter-android) | Native Android app with Kotlin & Jetpack Compose |
 | **Web Embed** | [`livekit-examples/agent-starter-embed`](https://github.com/livekit-examples/agent-starter-embed) | Voice AI widget for any website |
-| **Telephony** | [📚 Documentation](https://docs.livekit.io/agents/start/telephony/) | Add inbound or outbound calling to your agent |
+| **Telephony** | [Documentation](https://docs.livekit.io/agents/start/telephony/) | Add inbound or outbound calling to your agent |
 
 For advanced customization, see the [complete frontend guide](https://docs.livekit.io/agents/start/frontend/).
 
