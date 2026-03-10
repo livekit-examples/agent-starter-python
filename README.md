@@ -59,7 +59,7 @@ lk agent init my-agent --template agent-starter-python
 The CLI clones the template and configures your environment. Then follow the rest of this guide from [Run the agent](#run-the-agent).
 
 <details>
-<summary>Alternative: manual setup without the CLI</summary>
+<summary>Alternative: Manual setup without the CLI</summary>
 
 Clone the repository and install dependencies to a virtual environment:
 
