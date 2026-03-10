@@ -58,7 +58,10 @@ lk agent init my-agent --template agent-starter-python
 
 The CLI clones the template and configures your environment. Then follow the rest of this guide from [Run the agent](#run-the-agent).
 
-Alternatively, clone the repository and install dependencies to a virtual environment:
+<details>
+<summary>Alternative: manual setup without the CLI</summary>
+
+Clone the repository and install dependencies to a virtual environment:
 
 ```console
 cd agent-starter-python
@@ -77,6 +80,8 @@ You can load the LiveKit environment automatically using the [LiveKit CLI](https
 lk cloud auth
 lk app env -w -d .env.local
 ```
+
+</details>
 
 ## Run the agent
 
