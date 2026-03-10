@@ -10,19 +10,13 @@ FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim AS base
 # the application crashes without emitting any logs due to buffering.
 ENV PYTHONUNBUFFERED=1
 
-# Create a non-privileged user that the app will run under.
-# See https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#user
-ARG UID=10001
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/app" \
-    --shell "/sbin/nologin" \
-    --uid "${UID}" \
-    appuser
+# --- Build stage ---
+# Install dependencies, build native extensions, and prepare the application
+FROM base AS build
 
 # Install build dependencies required for Python packages with native extensions
 # gcc: C compiler needed for building Python packages with C extensions
+# g++: C++ compiler needed for building Python packages with C++ extensions
 # python3-dev: Python development headers needed for compilation
 # We clean up the apt cache after installation to keep the image size down
 RUN apt-get update && apt-get install -y \
@@ -50,20 +44,35 @@ RUN uv sync --locked
 # (Excludes files specified in .dockerignore)
 COPY . .
 
-# Change ownership of all app files to the non-privileged user
-# This ensures the application can read/write files as needed
-RUN chown -R appuser:appuser /app
+# Pre-download any ML models or files the agent needs
+# This ensures the container is ready to run immediately without downloading
+# dependencies at runtime, which improves startup time and reliability
+RUN uv run "src/agent.py" download-files
+
+# --- Production stage ---
+# Build tools (gcc, g++, python3-dev) are not included in the final image
+FROM base
+
+# Create a non-privileged user that the app will run under.
+# See https://docs.docker.com/build/building/best-practices/#user
+ARG UID=10001
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/app" \
+    --shell "/sbin/nologin" \
+    --uid "${UID}" \
+    appuser
+
+# Copy the application and virtual environment with correct ownership in a single layer
+# This avoids expensive recursive chown and excludes build tools from the final image
+COPY --from=build --chown=appuser:appuser /app /app
 
 # Switch to the non-privileged user for all subsequent operations
 # This improves security by not running as root
 USER appuser
 
-# Pre-download any ML models or files the agent needs
-# This ensures the container is ready to run immediately without downloading
-# dependencies at runtime, which improves startup time and reliability
-RUN uv run src/agent.py download-files
-
-# Run the application using UV
+# Run the AgentServer using UV
 # UV will activate the virtual environment and run the agent.
-# The "start" command tells the worker to connect to LiveKit and begin waiting for jobs.
+# The "start" command tells the AgentServer to connect to LiveKit and begin waiting for jobs.
 CMD ["uv", "run", "src/agent.py", "start"]
