@@ -17,13 +17,13 @@ The starter project includes:
 - Integrated [metrics and logging](https://docs.livekit.io/agents/build/metrics/)
 - A Dockerfile ready for [production deployment](https://docs.livekit.io/agents/ops/deployment/)
 
-This starter app is compatible with any [custom web/mobile frontend](https://docs.livekit.io/agents/start/frontend/) or [SIP-based telephony](https://docs.livekit.io/agents/start/telephony/).
+This starter app is compatible with any [custom web/mobile frontend](https://docs.livekit.io/frontends/) or [SIP-based telephony](https://docs.livekit.io/telephony/).
 
 ## Using coding agents
 
 This project is designed to work with coding agents like [Claude Code](https://claude.com/product/claude-code), [Cursor](https://www.cursor.com/), and [Codex](https://openai.com/codex/).
 
-For your convenience, LiveKit offers both a CLI and an [MCP server](https://docs.livekit.io/reference/other/docs-mcp/) that can be used to browse and search its documentation. The [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/) (`lk docs`) works with any coding agent that can run shell commands. Install it for your platform:
+For your convenience, LiveKit offers both a CLI and an [MCP server](https://docs.livekit.io/reference/developer-tools/docs-mcp/) that can be used to browse and search its documentation. The [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/) (`lk docs`) works with any coding agent that can run shell commands. Install it for your platform:
 
 **macOS:**
 
@@ -128,9 +128,9 @@ Get started quickly with our pre-built frontend starter apps, or add telephony s
 | **React Native** | [`livekit-examples/voice-assistant-react-native`](https://github.com/livekit-examples/voice-assistant-react-native) | Native mobile app with React Native & Expo |
 | **Android** | [`livekit-examples/agent-starter-android`](https://github.com/livekit-examples/agent-starter-android) | Native Android app with Kotlin & Jetpack Compose |
 | **Web Embed** | [`livekit-examples/agent-starter-embed`](https://github.com/livekit-examples/agent-starter-embed) | Voice AI widget for any website |
-| **Telephony** | [Documentation](https://docs.livekit.io/agents/start/telephony/) | Add inbound or outbound calling to your agent |
+| **Telephony** | [Documentation](https://docs.livekit.io/telephony/) | Add inbound or outbound calling to your agent |
 
-For advanced customization, see the [complete frontend guide](https://docs.livekit.io/agents/start/frontend/).
+For advanced customization, see the [complete frontend guide](https://docs.livekit.io/frontends/).
 
 ## Tests and evals
 

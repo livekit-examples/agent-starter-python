@@ -30,7 +30,7 @@ Run `lk docs --help` to see all available commands. Key commands: `lk docs overv
 
 ### LiveKit Docs MCP Server
 
-For deeper IDE integration, LiveKit also offers an [MCP server](https://docs.livekit.io/reference/other/docs-mcp/) with the same documentation access. It uses Streamable HTTP transport at `https://docs.livekit.io/mcp`. Refer to your IDE's documentation for how to add it.
+For deeper IDE integration, LiveKit also offers an [MCP server](https://docs.livekit.io/reference/developer-tools/docs-mcp/) with the same documentation access. It uses Streamable HTTP transport at `https://docs.livekit.io/mcp`. Refer to your IDE's documentation for how to add it.
 
 ### Submit docs feedback to LiveKit
 
