@@ -10,4 +10,24 @@ KMS
 *.egg-info
 .pytest_cache
 .ruff_cache
+
+# Claude Code
 .claude/settings.local.json
+.claude/worktrees/
+
+# OpenAI Codex
+.codex/config.local.toml
+
+# Gemini CLI
+.gemini/history/
+.gemini/tmp/
+.gemini/google_accounts.json
+.gemini/installation_id
+.gemini/oauth_creds.json
+
+# Cursor
+.cursor/chat/
+.cursor/rules/*.local.mdc
+
+# GitHub CLI
+.github/personal-instructions.md

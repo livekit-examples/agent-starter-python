@@ -56,6 +56,18 @@ The project includes a complete [AGENTS.md](AGENTS.md) file for these assistants
 
 ## Dev Setup
 
+Create a project from this template with the LiveKit CLI (recommended):
+
+```bash
+lk cloud auth
+lk agent init my-agent --template agent-starter-python
+```
+
+The CLI clones the template and configures your environment. Then follow the rest of this guide from [Run the agent](#run-the-agent).
+
+<details>
+<summary>Alternative: Manual setup without the CLI</summary>
+
 Clone the repository and install dependencies to a virtual environment:
 
 ```console
@@ -75,6 +87,8 @@ You can load the LiveKit environment automatically using the [LiveKit CLI](https
 lk cloud auth
 lk app env -w -d .env.local
 ```
+
+</details>
 
 ## Run the agent
 
