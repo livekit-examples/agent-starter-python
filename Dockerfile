@@ -68,6 +68,8 @@ RUN adduser \
 # This avoids expensive recursive chown and excludes build tools from the final image
 COPY --from=build --chown=appuser:appuser /app /app
 
+WORKDIR /app
+
 # Switch to the non-privileged user for all subsequent operations
 # This improves security by not running as root
 USER appuser
