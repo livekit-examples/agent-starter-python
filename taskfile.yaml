@@ -1,5 +1,4 @@
 version: "3"
-output: interleaved
 dotenv: [".env.local"]
 vars:
   INDENT: 4
@@ -11,16 +10,13 @@ tasks:
   post_create:
     desc: "Runs after this template is instantiated as a Sandbox or Bootstrap"
     cmds:
-      - echo 'To try the new agent directly in your terminal:'
-      - echo ''
-      - echo '{{ indent .INDENT "cd" }} {{ .REL_PATH }}'
-      - echo '{{ indent .INDENT "uv sync" }}'
-      - echo '{{ indent .INDENT "uv run" }} {{ .PYTHON_MAIN }} download-files'
-      - echo '{{ indent .INDENT "uv run" }} {{ .PYTHON_MAIN }} console'
+      - echo 'Your agent has been created!'
+      - task: help_run_console
+      - task: help_open_web_console
       - echo ''
       - echo 'To deploy your agent to LiveKit cloud:'
       - echo ''
-      - echo '{{ indent .INDENT "lk agent create" }}'
+      - echo '{{ indent .INDENT "lk agent deploy" }}'
       - echo ''
       - task: set_agent_name_if_present
       - task: help_open_sandbox_if_present
@@ -39,19 +35,52 @@ tasks:
         done < "$file"
         mv "$tmp" "$file"
 
+  help_run_console:
+    status:
+      - test -n "$LIVEKIT_AGENT_NAME"
+    cmds:
+      - echo 'To try your new agent directly in your terminal:'
+      - echo ''
+      - echo '{{ indent .INDENT "cd" }} {{ .REL_PATH }}'
+      - echo '{{ indent .INDENT "uv sync" }}'
+      - echo '{{ indent .INDENT "uv run" }} {{ .PYTHON_MAIN }} download-files'
+      - echo '{{ indent .INDENT "uv run" }} {{ .PYTHON_MAIN }} console'
+
+  help_open_web_console:
+    status:
+      - test -z "$LIVEKIT_AGENT_NAME"
+    vars:
+      CONSOLE_URL: "https://cloud.livekit.io/projects/p_/agents/console"
+      CONSOLE_LINK: '{{ print "\x1b]8;;" .CONSOLE_URL "/?autoStart=true&agentName=" .LIVEKIT_AGENT_NAME "\x1b\\\x1b[36;4m" .CONSOLE_URL "/?autoStart=true&agentName=" .LIVEKIT_AGENT_NAME "\x1b[0m\x1b]8;;\x1b\\" }}'
+    cmds:
+      - echo 'To try your new agent in the web console:'
+      - echo ''
+      - echo '{{ indent .INDENT "cd" }} {{ .REL_PATH }}'
+      - echo '{{ indent .INDENT "uv sync" }}'
+      - echo '{{ indent .INDENT "uv run" }} {{ .PYTHON_MAIN }} download-files'
+      - echo '{{ indent .INDENT "uv run" }} {{ .PYTHON_MAIN }} dev'
+      - echo ''
+      - echo 'Then visit:'
+      - echo ''
+      - echo '{{ indent .INDENT .CONSOLE_LINK }}'
+
   help_open_sandbox_if_present:
     status:
       - test -z "$LIVEKIT_SANDBOX_ID"
+    vars:
+      SANDBOX_URL: 'https://{{ .LIVEKIT_SANDBOX_ID }}.sandbox.livekit.io'
+      SANDBOX_LINK: '{{ print "\x1b]8;;" .SANDBOX_URL "\x1b\\\x1b[36;4m" .SANDBOX_URL "\x1b[0m\x1b]8;;\x1b\\" }}'
     cmds:
       - echo 'To chat with your running agent, visit:'
       - echo ''
-      - echo '{{ indent .INDENT "https://" }}{{ .LIVEKIT_SANDBOX_ID }}.sandbox.livekit.io'
+      - echo '{{ indent .INDENT .SANDBOX_LINK }}'
       - echo ''
 
   install:
     desc: "Bootstrap application for local development"
     cmds:
       - "uv sync"
+
   dev:
     interactive: true
     cmds:
