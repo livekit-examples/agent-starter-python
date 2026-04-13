@@ -12,7 +12,7 @@ from livekit.agents import (
     inference,
     room_io,
 )
-from livekit.plugins import ai_coustics, noise_cancellation, silero
+from livekit.plugins import noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 logger = logging.getLogger("agent")
@@ -115,9 +115,7 @@ async def my_agent(ctx: JobContext):
                     noise_cancellation.BVCTelephony()
                     if params.participant.kind
                     == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
-                    else ai_coustics.audio_enhancement(
-                        model=ai_coustics.EnhancerModel.QUAIL_VF_L
-                    )
+                    else noise_cancellation.BVC()
                 ),
             ),
         ),
