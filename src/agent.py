@@ -18,6 +18,8 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
+AGENT_MODEL = "openai/gpt-5.3-chat-latest"
+
 
 class Assistant(Agent):
     def __init__(self) -> None:
@@ -71,7 +73,7 @@ async def my_agent(ctx: JobContext):
         stt=inference.STT(model="deepgram/nova-3", language="multi"),
         # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
         # See all available models at https://docs.livekit.io/agents/models/llm/
-        llm=inference.LLM(model="openai/gpt-5.3-chat-latest"),
+        llm=inference.LLM(model=AGENT_MODEL),
         # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
         # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
         tts=inference.TTS(
