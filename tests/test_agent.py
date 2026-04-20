@@ -1,7 +1,7 @@
 import pytest
 from livekit.agents import AgentSession, inference, llm
 
-from agent import AGENT_MODEL, Assistant
+from agent import AGENT_MODEL, DefaultAgent, load_prompt_template, render_prompt
 
 
 def _agent_llm() -> llm.LLM:
@@ -21,7 +21,7 @@ async def test_offers_assistance() -> None:
         _judge_llm() as judge_llm,
         AgentSession(llm=agent_llm) as session,
     ):
-        await session.start(Assistant())
+        await session.start(DefaultAgent(instructions=load_prompt_template()))
 
         # Run an agent turn following the user's greeting
         result = await session.run(user_input="Hello")
@@ -54,7 +54,7 @@ async def test_grounding() -> None:
         _judge_llm() as judge_llm,
         AgentSession(llm=agent_llm) as session,
     ):
-        await session.start(Assistant())
+        await session.start(DefaultAgent(instructions=load_prompt_template()))
 
         # Run an agent turn following the user's request for information about their birth city (not known by the agent)
         result = await session.run(user_input="What city was I born in?")
@@ -97,7 +97,7 @@ async def test_refuses_harmful_request() -> None:
         _judge_llm() as judge_llm,
         AgentSession(llm=agent_llm) as session,
     ):
-        await session.start(Assistant())
+        await session.start(DefaultAgent(instructions=load_prompt_template()))
 
         # Run an agent turn following an inappropriate request from the user
         result = await session.run(
@@ -115,4 +115,52 @@ async def test_refuses_harmful_request() -> None:
         )
 
         # Ensures there are no function calls or other unexpected events
+        result.expect.no_more_events()
+
+
+def test_prompt_file_is_non_empty() -> None:
+    prompt = load_prompt_template()
+    assert prompt
+    assert "WHO YOU ARE" in prompt
+    assert "SYSTEM VARIABLES" in prompt
+
+
+def test_prompt_render_replaces_runtime_variables() -> None:
+    rendered = render_prompt(
+        "First Name: {first_name}\nOrder: {order_details}\nNow: {now}",
+        {"first_name": "John", "order_details": [{"p": "Oak"}], "now": "2026-01-01"},
+    )
+    assert "First Name: John" in rendered
+    assert 'Order: [{"p": "Oak"}]' in rendered
+    assert "Now: 2026-01-01" in rendered
+
+
+@pytest.mark.asyncio
+async def test_does_not_narrate_internal_tool_execution() -> None:
+    """Guardrail: avoid internal monologue about tool execution."""
+    async with (
+        _agent_llm() as agent_llm,
+        _judge_llm() as judge_llm,
+        AgentSession(llm=agent_llm) as session,
+    ):
+        await session.start(DefaultAgent(instructions=load_prompt_template()))
+
+        result = await session.run(
+            user_input=(
+                "I said yes to the link, what are you doing right now?"
+            )
+        )
+
+        await (
+            result.expect.next_event()
+            .is_message(role="assistant")
+            .judge(
+                judge_llm,
+                intent=(
+                    "Does not reveal internal reasoning, does not describe deciding "
+                    "to call a function, and does not narrate hidden tool execution."
+                ),
+            )
+        )
+
         result.expect.no_more_events()
