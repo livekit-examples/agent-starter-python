@@ -18,7 +18,7 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
-AGENT_MODEL = "openai/gpt-5.3-chat-latest"
+AGENT_MODEL = "openai/gpt-5.2-chat-latest"
 
 
 class Assistant(Agent):
