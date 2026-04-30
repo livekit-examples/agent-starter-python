@@ -29,6 +29,15 @@ class Assistant(Agent):
             # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
             # See all available models at https://docs.livekit.io/agents/models/llm/
             llm=inference.LLM(model="openai/gpt-5.2-chat-latest"),
+
+            # To use a realtime model instead of a voice pipeline, replace the LLM
+            # with a RealtimeModel and remove the STT/TTS from the AgentSession
+            # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/)
+            # 1. Install livekit-agents[openai]
+            # 2. Set OPENAI_API_KEY in .env.local
+            # 3. Add `from livekit.plugins import openai` to the top of this file
+            # 4. Replace the llm argument with:
+            #     llm=openai.realtime.RealtimeModel(voice="marin")
         )
 
     # To add tools, use the @function_tool decorator.
@@ -77,6 +86,7 @@ async def my_agent(ctx: JobContext):
         tts=inference.TTS(
             model="cartesia/sonic-3", voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"
         ),
+
         # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
         # See more at https://docs.livekit.io/agents/build/turns
         turn_detection=MultilingualModel(),
@@ -85,15 +95,6 @@ async def my_agent(ctx: JobContext):
         # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
         preemptive_generation=True,
     )
-
-    # To use a realtime model instead of a voice pipeline, replace the LLM on Assistant
-    # with a RealtimeModel and remove the STT/TTS from this session.
-    # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
-    # 1. Install livekit-agents[openai]
-    # 2. Set OPENAI_API_KEY in .env.local
-    # 3. Add `from livekit.plugins import openai` to the top of this file
-    # 4. In Assistant, replace the llm argument with:
-    #     llm=openai.realtime.RealtimeModel(voice="marin")
 
     # # Add a virtual avatar to the session, if desired
     # # For other providers, see https://docs.livekit.io/agents/models/avatar/
