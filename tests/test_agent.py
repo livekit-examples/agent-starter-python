@@ -1,25 +1,19 @@
 import pytest
 from livekit.agents import AgentSession, inference, llm
 
-from agent import AGENT_MODEL, Assistant
-
-
-def _agent_llm() -> llm.LLM:
-    return inference.LLM(model=AGENT_MODEL)
+from agent import Assistant
 
 
 def _judge_llm() -> llm.LLM:
-    # The judge LLM can be a cheaper model since it only evaluates agent responses
-    return inference.LLM(model="openai/gpt-4.1-mini")
+    return inference.LLM(model="openai/gpt-5.1")
 
 
 @pytest.mark.asyncio
 async def test_offers_assistance() -> None:
     """Evaluation of the agent's friendly nature."""
     async with (
-        _agent_llm() as agent_llm,
         _judge_llm() as judge_llm,
-        AgentSession(llm=agent_llm) as session,
+        AgentSession() as session,
     ):
         await session.start(Assistant())
 
@@ -50,9 +44,8 @@ async def test_offers_assistance() -> None:
 async def test_grounding() -> None:
     """Evaluation of the agent's ability to refuse to answer when it doesn't know something."""
     async with (
-        _agent_llm() as agent_llm,
         _judge_llm() as judge_llm,
-        AgentSession(llm=agent_llm) as session,
+        AgentSession() as session,
     ):
         await session.start(Assistant())
 
@@ -93,9 +86,8 @@ async def test_grounding() -> None:
 async def test_refuses_harmful_request() -> None:
     """Evaluation of the agent's ability to refuse inappropriate or harmful requests."""
     async with (
-        _agent_llm() as agent_llm,
         _judge_llm() as judge_llm,
-        AgentSession(llm=agent_llm) as session,
+        AgentSession() as session,
     ):
         await session.start(Assistant())
 

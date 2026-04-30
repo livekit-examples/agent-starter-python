@@ -18,8 +18,6 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
-AGENT_MODEL = "openai/gpt-5.3-chat-latest"
-
 
 class Assistant(Agent):
     def __init__(self) -> None:
@@ -28,6 +26,17 @@ class Assistant(Agent):
             You eagerly assist users with their questions by providing information from your extensive knowledge.
             Your responses are concise, to the point, and without any complex formatting or punctuation including emojis, asterisks, or other symbols.
             You are curious, friendly, and have a sense of humor.""",
+            # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
+            # See all available models at https://docs.livekit.io/agents/models/stt/
+            stt=inference.STT(model="deepgram/nova-3", language="multi"),
+            # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
+            # See all available models at https://docs.livekit.io/agents/models/llm/
+            llm=inference.LLM(model="openai/gpt-5.3-chat-latest"),
+            # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
+            # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
+            tts=inference.TTS(
+                model="cartesia/sonic-3", voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"
+            ),
         )
 
     # To add tools, use the @function_tool decorator.
@@ -66,19 +75,7 @@ async def my_agent(ctx: JobContext):
         "room": ctx.room.name,
     }
 
-    # Set up a voice AI pipeline using OpenAI, Cartesia, Deepgram, and the LiveKit turn detector
     session = AgentSession(
-        # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
-        # See all available models at https://docs.livekit.io/agents/models/stt/
-        stt=inference.STT(model="deepgram/nova-3", language="multi"),
-        # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
-        # See all available models at https://docs.livekit.io/agents/models/llm/
-        llm=inference.LLM(model=AGENT_MODEL),
-        # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
-        # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
-        tts=inference.TTS(
-            model="cartesia/sonic-3", voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"
-        ),
         # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
         # See more at https://docs.livekit.io/agents/build/turns
         turn_detection=MultilingualModel(),
@@ -88,15 +85,14 @@ async def my_agent(ctx: JobContext):
         preemptive_generation=True,
     )
 
-    # To use a realtime model instead of a voice pipeline, use the following session setup instead.
+    # To use a realtime model instead of a voice pipeline, override the LLM in Assistant
+    # with an OpenAI Realtime model.
     # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
     # 1. Install livekit-agents[openai]
     # 2. Set OPENAI_API_KEY in .env.local
     # 3. Add `from livekit.plugins import openai` to the top of this file
-    # 4. Use the following session setup instead of the version above
-    # session = AgentSession(
+    # 4. In Assistant, replace the llm/stt/tts arguments with:
     #     llm=openai.realtime.RealtimeModel(voice="marin")
-    # )
 
     # # Add a virtual avatar to the session, if desired
     # # For other providers, see https://docs.livekit.io/agents/models/avatar/
