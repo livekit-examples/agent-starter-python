@@ -98,6 +98,17 @@ async def my_agent(ctx: JobContext):
     #     llm=openai.realtime.RealtimeModel(voice="marin")
     # )
 
+    # # Add a virtual avatar to the session, if desired
+    # # For other providers, see https://docs.livekit.io/agents/models/avatar/
+    # avatar = anam.AvatarSession(
+    #     persona_config=anam.PersonaConfig(
+    #         name="...",
+    #         avatarId="...",  # See https://docs.livekit.io/agents/models/avatar/plugins/anam
+    #     ),
+    # )
+    # # Start the avatar and wait for it to join (after session.start)
+    # await avatar.start(session, room=ctx.room)
+
     # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
         agent=Assistant(),
@@ -110,20 +121,6 @@ async def my_agent(ctx: JobContext):
             ),
         ),
     )
-
-    # # Add a virtual avatar to the session, if desired
-    # # For other providers, see https://docs.livekit.io/agents/models/avatar/
-    # # 1. Install livekit-plugins-anam
-    # # 2. Set ANAM_API_KEY in .env.local
-    # # 3. Add `from livekit.plugins import anam` to the top of this file
-    # # Note: Anam requires session.start() to run first so it can attach to the active audio stream
-    # avatar = anam.AvatarSession(
-    #     persona_config=anam.PersonaConfig(
-    #         name="...",  # Persona name
-    #         avatarId="...",  # See https://docs.livekit.io/agents/models/avatar/plugins/anam
-    #     ),
-    # )
-    # await avatar.start(session, room=ctx.room)
 
     # Join the room and connect to the user
     await ctx.connect()
