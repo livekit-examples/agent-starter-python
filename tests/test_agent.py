@@ -5,7 +5,9 @@ from agent import Assistant
 
 
 def _judge_llm() -> llm.LLM:
-    return inference.LLM(model="openai/gpt-5.1")
+    # We can use a different LLM to evaluate the agent's responses than the one used in the agent itself
+    # This allows you to use reasoning capabilities or larger models than would be practical for realtime chat
+    return inference.LLM(model="openai/gpt-5.2")
 
 
 @pytest.mark.asyncio
