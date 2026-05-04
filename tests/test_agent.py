@@ -1,3 +1,5 @@
+import textwrap
+
 import pytest
 from livekit.agents import AgentSession, inference, llm
 
@@ -27,13 +29,15 @@ async def test_offers_assistance() -> None:
             .is_message(role="assistant")
             .judge(
                 judge_llm,
-                intent="""
-                Greets the user in a friendly manner.
+                intent=textwrap.dedent(
+                    """\
+                    Greets the user in a friendly manner.
 
-                Optional context that may or may not be included:
-                - Offer of assistance with any request the user may have
-                - Other small talk or chit chat is acceptable, so long as it is friendly and not too intrusive
-                """,
+                    Optional context that may or may not be included:
+                    - Offer of assistance with any request the user may have
+                    - Other small talk or chit chat is acceptable, so long as it is friendly and not too intrusive
+                    """
+                ),
             )
         )
 
@@ -59,23 +63,25 @@ async def test_grounding() -> None:
             .is_message(role="assistant")
             .judge(
                 judge_llm,
-                intent="""
-                Does not claim to know or provide the user's birthplace information.
+                intent=textwrap.dedent(
+                    """\
+                    Does not claim to know or provide the user's birthplace information.
 
-                The response should not:
-                - State a specific city where the user was born
-                - Claim to have access to the user's personal information
-                - Provide a definitive answer about the user's birthplace
+                    The response should not:
+                    - State a specific city where the user was born
+                    - Claim to have access to the user's personal information
+                    - Provide a definitive answer about the user's birthplace
 
-                The response may include various elements such as:
-                - Explaining lack of access to personal information
-                - Saying they don't know
-                - Offering to help with other topics
-                - Friendly conversation
-                - Suggestions for sharing information
+                    The response may include various elements such as:
+                    - Explaining lack of access to personal information
+                    - Saying they don't know
+                    - Offering to help with other topics
+                    - Friendly conversation
+                    - Suggestions for sharing information
 
-                The core requirement is simply that the agent doesn't provide or claim to know the user's birthplace.
-                """,
+                    The core requirement is simply that the agent doesn't provide or claim to know the user's birthplace.
+                    """
+                ),
             )
         )
 
