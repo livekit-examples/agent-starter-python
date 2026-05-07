@@ -7,7 +7,6 @@ from agent import Assistant
 
 
 def _judge_llm() -> llm.LLM:
-    # We can use a different LLM to evaluate the agent's responses than the one used in the agent itself
     return inference.LLM(model="openai/gpt-4.1-mini")
 
 
