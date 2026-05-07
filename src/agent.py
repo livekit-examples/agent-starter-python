@@ -133,7 +133,7 @@ async def my_agent(ctx: JobContext):
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
                 noise_cancellation=ai_coustics.audio_enhancement(
-                    model=ai_coustics.EnhancerModel.QUAIL_VF_L
+                    model=ai_coustics.EnhancerModel.QUAIL_VF_S
                 ),
             ),
         ),
