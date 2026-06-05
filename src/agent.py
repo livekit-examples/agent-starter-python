@@ -7,13 +7,12 @@ from livekit.agents import (
     AgentServer,
     AgentSession,
     JobContext,
-    JobProcess,
+    TurnHandlingOptions,
     cli,
     inference,
     room_io,
 )
-from livekit.plugins import ai_coustics, silero
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from livekit.plugins import ai_coustics
 
 logger = logging.getLogger("agent")
 
@@ -92,13 +91,6 @@ class Assistant(Agent):
 server = AgentServer()
 
 
-def prewarm(proc: JobProcess):
-    proc.userdata["vad"] = silero.VAD.load()
-
-
-server.setup_fnc = prewarm
-
-
 @server.rtc_session(agent_name="my-agent")
 async def my_agent(ctx: JobContext):
     # Logging setup
@@ -117,10 +109,14 @@ async def my_agent(ctx: JobContext):
         tts=inference.TTS(
             model="cartesia/sonic-3", voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"
         ),
-        # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
+        # The LiveKit turn detector determines when the user is done speaking and the agent should respond.
+        # AudioTurnDetector is a multimodal model that listens to the user's audio directly, combining
+        # semantic understanding with acoustic cues (intonation, pitch, rhythm) for state-of-the-art accuracy.
+        # AgentSession supplies the required VAD automatically.
         # See more at https://docs.livekit.io/agents/build/turns
-        turn_detection=MultilingualModel(),
-        vad=ctx.proc.userdata["vad"],
+        turn_handling=TurnHandlingOptions(
+            turn_detection=inference.AudioTurnDetector(),
+        ),
         # allow the LLM to generate a response while waiting for the end of turn
         # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
         preemptive_generation=True,

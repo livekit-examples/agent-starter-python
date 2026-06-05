@@ -43,7 +43,7 @@ tasks:
       - echo ''
       - echo '{{ indent .INDENT "cd" }} {{ .REL_PATH }}'
       - echo '{{ indent .INDENT "uv sync" }}'
-      - echo '{{ indent .INDENT "uv run" }} {{ .PYTHON_MAIN }} download-files'
+      - echo '{{ indent .INDENT "uv run --module livekit.agents download-files" }}'
       - echo '{{ indent .INDENT "uv run" }} {{ .PYTHON_MAIN }} console'
 
   help_open_web_console:
@@ -57,7 +57,7 @@ tasks:
       - echo ''
       - echo '{{ indent .INDENT "cd" }} {{ .REL_PATH }}'
       - echo '{{ indent .INDENT "uv sync" }}'
-      - echo '{{ indent .INDENT "uv run" }} {{ .PYTHON_MAIN }} download-files'
+      - echo '{{ indent .INDENT "uv run --module livekit.agents download-files" }}'
       - echo '{{ indent .INDENT "uv run" }} {{ .PYTHON_MAIN }} dev'
       - echo ''
       - echo 'Then visit:'
