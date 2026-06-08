@@ -110,12 +110,12 @@ async def my_agent(ctx: JobContext):
             model="cartesia/sonic-3", voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"
         ),
         # The LiveKit turn detector determines when the user is done speaking and the agent should respond.
-        # AudioTurnDetector is a multimodal model that listens to the user's audio directly, combining
+        # TurnDetector is an end-of-turn model that listens to the user's audio directly, combining
         # semantic understanding with acoustic cues (intonation, pitch, rhythm) for state-of-the-art accuracy.
         # AgentSession supplies the required VAD automatically.
         # See more at https://docs.livekit.io/agents/build/turns
         turn_handling=TurnHandlingOptions(
-            turn_detection=inference.AudioTurnDetector(),
+            turn_detection=inference.TurnDetector(),
         ),
         # allow the LLM to generate a response while waiting for the end of turn
         # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
