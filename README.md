@@ -85,7 +85,7 @@ You can load the LiveKit environment automatically using the [LiveKit CLI](https
 
 ```bash
 lk cloud auth
-lk app env -w -d .env.local
+lk app env --write --destination .env.local
 ```
 
 </details>
