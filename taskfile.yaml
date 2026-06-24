@@ -21,6 +21,14 @@ tasks:
       - task: set_agent_name_if_present
       - task: help_open_sandbox_if_present
 
+  help_install_hint_if_needed:
+    desc: "Print the local install hint, unless the CLI already installed dependencies"
+    status:
+      # Skip when `lk agent init --install` already ran the install task.
+      - test -n "$LIVEKIT_DEPS_INSTALLED"
+    cmds:
+      - echo '{{ indent .INDENT "uv sync" }}'
+
   set_agent_name_if_present:
     status:
       - test -z "$LIVEKIT_AGENT_NAME"
@@ -42,7 +50,7 @@ tasks:
       - echo 'To try your new agent directly in your terminal:'
       - echo ''
       - echo '{{ indent .INDENT "cd" }} {{ .REL_PATH }}'
-      - echo '{{ indent .INDENT "uv sync" }}'
+      - task: help_install_hint_if_needed
       - echo '{{ indent .INDENT "uv run" }} {{ .PYTHON_MAIN }} console'
 
   help_open_web_console:
@@ -55,7 +63,7 @@ tasks:
       - echo 'To try your new agent in the web console:'
       - echo ''
       - echo '{{ indent .INDENT "cd" }} {{ .REL_PATH }}'
-      - echo '{{ indent .INDENT "uv sync" }}'
+      - task: help_install_hint_if_needed
       - echo '{{ indent .INDENT "uv run" }} {{ .PYTHON_MAIN }} dev'
       - echo ''
       - echo 'Then visit:'
