@@ -9,8 +9,10 @@ A complete starter project for building voice AI apps with [LiveKit Agents for P
 The starter project includes:
 
 - A simple voice AI assistant, ready for extension and customization
-- A voice AI pipeline built on [LiveKit Inference](https://docs.livekit.io/agents/models/inference)
-  with [models](https://docs.livekit.io/agents/models) from OpenAI, Cartesia, and Deepgram. More than 50 other model providers are supported, including [Realtime models](https://docs.livekit.io/agents/models/realtime)
+- A voice AI pipeline built on [LiveKit Inference](https://docs.livekit.io/agents/models/inference), providing zero-configuration access to [models](https://docs.livekit.io/agents/models) from top labs
+  - Uses the fast, open-weight Gemma 4 31B model, [hosted by LiveKit](https://docs.livekit.io/agents/models/llm/livekit/) and tuned for optimal performance in voice AI, as the default LLM
+  - Supports more than 50 models from OpenAI, Cartesia, Deepgram, and other providers
+  - Access to a wide range of other models, including [Realtime models](https://docs.livekit.io/agents/models/realtime), through extensive plugin ecosystem
 - Eval suite based on the LiveKit Agents [testing & evaluation framework](https://docs.livekit.io/agents/start/testing/)
 - [LiveKit Turn Detector](https://docs.livekit.io/agents/logic/turns/turn-detector/), an end-of-turn model that listens to the user's audio directly, combining semantic understanding with acoustic cues for state-of-the-art accuracy across 14 languages
 - [Background voice cancellation](https://docs.livekit.io/transport/media/noise-cancellation/)
