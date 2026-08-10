@@ -12,6 +12,12 @@ from livekit.agents import (
     inference,
     room_io,
 )
+from livekit.agents.evals import (
+    JudgeGroup,
+    coherence_judge,
+    conciseness_judge,
+    safety_judge,
+)
 from livekit.plugins import ai_coustics
 
 logger = logging.getLogger("agent")
@@ -103,17 +109,34 @@ async def on_session_end(ctx: JobContext) -> None:
         # so there's nothing to tag.
         return
 
-    # Mark whether the user actually engaged in a conversation.
+    # Mark whether the user actually engaged in a conversation. This is a cheap,
+    # instant heuristic — no model call — so it runs on every session.
     chat = report.chat_history.copy(
         exclude_function_call=True, exclude_instructions=True
     )
-    if len(chat.items) >= 3:
-        ctx.tagger.success()
-    else:
+    if len(chat.items) < 3:
         ctx.tagger.fail(reason="No meaningful conversation")
+        return
+
+    ctx.tagger.success()
 
     # You can also add your own custom tags with optional metadata, for example:
     # ctx.tagger.add("turns", metadata={"count": len(chat.items)})
+
+    # Production evals: score the conversation with LLM-as-judge. Each verdict is
+    # tagged automatically as `lk.judge.<name>`, so you can filter and analyze
+    # sessions by quality in LiveKit Cloud.
+    # https://docs.livekit.io/deploy/observability/evals/
+    #
+    # Judging runs an LLM per session, so it's gated behind the engagement check
+    # above — empty or abandoned sessions don't incur a model call. These built-in
+    # judges suit a general assistant; swap in others (accuracy, task_completion,
+    # tool_use, handoff) or a custom `Judge` subclass as your agent grows.
+    judges = JudgeGroup(
+        llm="openai/gpt-4o-mini",
+        judges=[safety_judge(), coherence_judge(), conciseness_judge()],
+    )
+    await judges.evaluate(report.chat_history)
 
 
 @server.rtc_session(agent_name="my-agent", on_session_end=on_session_end)
