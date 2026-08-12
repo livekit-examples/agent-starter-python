@@ -99,27 +99,35 @@ async def my_agent(ctx: JobContext):
         "room": ctx.room.name,
     }
 
-    # Set up a voice AI pipeline using OpenAI, Cartesia, Deepgram, and the LiveKit turn detector
+    # Set up a voice AI pipeline using AssemblyAI, Fish Audio, and the LiveKit turn detector
     session = AgentSession(
         # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
         # See all available models at https://docs.livekit.io/agents/models/stt/
-        stt=inference.STT(model="deepgram/nova-3", language="multi"),
+        stt=inference.STT(model="assemblyai/universal-3-5-pro", language="en"),
         # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
         # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
         tts=inference.TTS(
-            model="cartesia/sonic-3", voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"
+            model="fishaudio/s2.1-pro", voice="fa4c9eb3dccc4806b382b40d61c6b10a"
         ),
-        # The LiveKit turn detector determines when the user is done speaking and the agent should respond.
-        # TurnDetector is an end-of-turn model that listens to the user's audio directly, combining
-        # semantic understanding with acoustic cues (intonation, pitch, rhythm) for state-of-the-art accuracy.
-        # AgentSession supplies the required VAD automatically.
-        # See more at https://docs.livekit.io/agents/build/turns
         turn_handling=TurnHandlingOptions(
+            # The LiveKit turn detector determines when the user is done speaking and the agent should respond.
+            # TurnDetector is an end-of-turn model that listens to the user's audio directly, combining
+            # semantic understanding with acoustic cues (intonation, pitch, rhythm) for state-of-the-art accuracy.
+            # AgentSession supplies the required VAD automatically.
+            # See more at https://docs.livekit.io/agents/build/turns
             turn_detection=inference.TurnDetector(),
+            # Adaptive interruptions use the turn detector to tell a real interruption from a
+            # backchannel like "mhm" or "right", so the agent keeps talking through the latter.
+            interruption={"mode": "adaptive"},
+            # allow the LLM to generate a response while waiting for the end of turn
+            # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
+            preemptive_generation={"enabled": True},
         ),
-        # allow the LLM to generate a response while waiting for the end of turn
-        # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
-        preemptive_generation=True,
+        # Expressive mode injects the TTS provider's markup guide into the LLM prompt, so the model
+        # emits inline delivery tags (emotion, pacing, non-verbal sounds) that the TTS renders and
+        # the transcript never shows. Requires a TTS model that supports markup, such as the Fish
+        # Audio model above.
+        expressive=True,
     )
 
     # Start the session, which initializes the voice pipeline and warms up the models
