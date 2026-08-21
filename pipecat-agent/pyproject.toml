@@ -1,0 +1,36 @@
+[project]
+name = "pipecat-agent-starter"
+version = "0.1.0"
+description = "Pipecat port of the LiveKit voice agent starter, using LiveKit transport and LiveKit Inference"
+requires-python = ">=3.10, <3.14"
+
+dependencies = [
+    "pipecat-ai[livekit,silero,openai]",
+    "livekit-api",
+    "websockets",
+    "python-dotenv",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "B", "A", "C4", "UP", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

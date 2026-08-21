@@ -33,6 +33,9 @@ where = ["src"]
 "" = "src"
 
 [tool.pytest.ini_options]
+# The pipecat-agent/ port is a self-contained project with its own venv and
+# tests; run those from that directory.
+testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
