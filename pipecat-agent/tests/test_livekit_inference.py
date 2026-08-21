@@ -431,6 +431,40 @@ async def test_tts_synthesizes_text_and_ends_the_turn_on_done():
     assert frames_of(down, TTSStoppedFrame)
 
 
+async def test_tts_flushes_once_per_turn_not_once_per_sentence():
+    """A flush terminates the whole turn.
+
+    LiveKit Inference answers one flush with one ``done``, and synthesis starts
+    as text arrives rather than at the flush. Flushing per sentence therefore
+    ends the turn on the first sentence and drops the rest of the response.
+    """
+    tts = _tts()
+    sockets = attach_fake_inference(tts, script=_tts_script)
+
+    down, _ = await run_test(
+        tts,
+        frames_to_send=[
+            LLMFullResponseStartFrame(),
+            TextFrame("First sentence. "),
+            TextFrame("Second sentence. "),
+            TextFrame("Third sentence. "),
+            LLMFullResponseEndFrame(),
+            SleepFrame(0.4),
+        ],
+    )
+
+    types = [m["type"] for m in sockets[0].sent]
+    assert types.count("input_transcript") == 3
+    assert types.count("session.flush") == 1
+
+    # The flush has to come after the last chunk, or it ends the turn early.
+    last_chunk = max(i for i, t in enumerate(types) if t == "input_transcript")
+    assert types.index("session.flush") > last_chunk
+
+    assert frames_of(down, TTSAudioRawFrame)
+    assert len(frames_of(down, TTSStoppedFrame)) == 1
+
+
 async def test_tts_separates_chunks_with_a_trailing_space():
     """Chunks land verbatim in the provider buffer, so "Hello"+"world" would run together."""
     tts = _tts()

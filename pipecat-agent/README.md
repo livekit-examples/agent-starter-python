@@ -57,8 +57,8 @@ uv run pytest
 The suite is offline: it drives both services through a real Pipecat pipeline
 against a scripted fake LiveKit Inference server, covering the wire protocol (STT's nested
 `settings` vs TTS's flat `session.create`, base64 audio framing, `session.finalize`,
-one flush per turn, the two different error shapes) and the frames the pipeline
-sees. `tests/test_agent.py` pins the prompt, models, and voice to `src/agent.py`,
+one flush per turn rather than per sentence, the two different error shapes) and
+the frames the pipeline sees. `tests/test_agent.py` pins the prompt, models, and voice to `src/agent.py`,
 so if the starter changes, these fail and name what drifted.
 
 Run the starter's own tests from the repo root, not here — the root `pytest` config
@@ -134,6 +134,11 @@ it is ignored, and a test pins that.
   set of rates for TTS output. Both services follow the transport's rates
   (16 kHz in, 24 kHz out here) and reject a rate LiveKit Inference would refuse, rather
   than declaring one rate and sending another.
+- **TTS turns.** Synthesis starts as text arrives, and a `session.flush` is the
+  turn *terminator* — LiveKit Inference answers one flush with one `done`. A turn
+  is therefore N chunks then a single flush at the end of the LLM response, which
+  lines up with Pipecat's one-audio-context-per-turn model. Flushing per sentence
+  ends the turn on the first sentence and silently drops the rest.
 - **Participant kind.** The agent joins with `kind == AGENT`, which is how
   frontends pick it out of the room (it's what the LiveKit React SDK's
   `useVoiceAssistant` looks for). LiveKit takes this from the token's `kind`

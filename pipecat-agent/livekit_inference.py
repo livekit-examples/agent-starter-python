@@ -609,6 +609,20 @@ class LiveKitInferenceTTSService(InterruptibleTTSService):
         await self.stop_all_metrics()
         await super().on_audio_context_interrupted(context_id)
 
+    async def flush_audio(self, context_id: str | None = None):
+        """End the turn's text, once the whole response has been sent.
+
+        Synthesis starts as text arrives, so this is only the terminator: it is
+        answered with the single ``done`` that closes this turn's audio context.
+        Flushing per sentence instead would end the turn on the first sentence.
+
+        Args:
+            context_id: Unused; one session serves one turn at a time.
+        """
+        if not self._websocket:
+            return
+        await self._get_websocket().send(json.dumps({"type": "session.flush"}))
+
     async def run_tts(
         self, text: str, context_id: str
     ) -> AsyncGenerator[Frame | None, None]:
@@ -639,12 +653,10 @@ class LiveKitInferenceTTSService(InterruptibleTTSService):
                 packet["extra"] = self._settings.extra
 
             try:
+                # No flush here: a turn is N chunks terminated by one flush, from
+                # flush_audio(). Synthesis begins on this send regardless.
                 await self._get_websocket().send(json.dumps(packet))
                 await self.start_tts_usage_metrics(text)
-                # One flush per call, and only here: each is answered with exactly
-                # one `done`, and a second `done` would close this turn's audio
-                # context while its audio was still streaming.
-                await self._get_websocket().send(json.dumps({"type": "session.flush"}))
             except Exception as e:
                 yield ErrorFrame(error=f"LiveKit Inference TTS send failed: {e}")
                 yield TTSStoppedFrame(context_id=context_id)
