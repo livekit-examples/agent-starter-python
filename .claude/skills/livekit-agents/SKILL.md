@@ -4,7 +4,7 @@ description: 'Build voice AI agents with LiveKit Cloud and the Agents SDK. Use w
 license: MIT
 metadata:
   author: livekit
-  version: "0.3.0"
+  version: "0.3.1"
 ---
 
 # LiveKit Agents Development for LiveKit Cloud
@@ -175,14 +175,6 @@ When building or modifying a LiveKit agent:
 2. **Write at least one test** before considering the implementation complete
 3. **Test the core behavior** the user requested
 4. **Run the tests** to verify they pass
-
-A minimal test file structure:
-```
-project/
-├── agent.py (or src/agent.py)
-└── tests/
-    └── test_agent.py
-```
 
 ### Test-Driven Development Process
 
