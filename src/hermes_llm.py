@@ -151,7 +151,7 @@ class _HermesLLMStream(llm.LLMStream):
         if route.mention is not None and route.status is not None:
             await self._publish_status(
                 {
-                    "type": "delegation",
+                    "type": "delegation.requested",
                     "mention": route.mention,
                     "status": route.status,
                 }

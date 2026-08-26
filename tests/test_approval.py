@@ -137,3 +137,17 @@ async def test_control_packet_cannot_resolve_approval() -> None:
 
     broker.deny_all()
     assert await pending == "deny"
+
+
+def test_approval_request_includes_safe_agent_label() -> None:
+    request = ApprovalRequest.from_event(
+        {
+            "command": "safe fixture",
+            "description": "Delete fixture",
+            "agent": "Computer Operator",
+        },
+        run_id="run_4",
+    )
+
+    assert request.agent == "Computer Operator"
+    assert request.to_wire()["agent"] == "Computer Operator"

@@ -120,7 +120,7 @@ async def test_stream_uses_current_conversation_id_and_routes_mention() -> None:
     assert "Hermes Main" in client.started[0]["input"]
     assert "delegate" in client.started[0]["input"]
     assert statuses[0] == {
-        "type": "delegation",
+        "type": "delegation.requested",
         "mention": "coder",
         "status": "Coder assigned",
     }
