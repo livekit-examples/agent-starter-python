@@ -66,6 +66,17 @@ def test_coder_mention_routes_through_hermes_main():
     assert route.status == "Coder assigned"
 
 
+def test_computer_operator_stays_in_foreground_main_run_for_mobile_approvals():
+    route = route_mention("@computer-operator use calculator gui 7x8")
+
+    assert route.mention == "computer-operator"
+    assert "Hermes Main" in route.hermes_input
+    assert "Do not call delegate_task" in route.hermes_input
+    assert "foreground" in route.hermes_input
+    assert "use calculator gui 7x8" in route.hermes_input
+    assert route.status == "Computer Operator assigned"
+
+
 def test_unmentioned_and_unknown_mention_text_is_preserved():
     assert route_mention("normal request").hermes_input == "normal request"
     unknown = route_mention("@unknown do something")

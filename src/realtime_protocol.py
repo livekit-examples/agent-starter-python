@@ -122,6 +122,21 @@ def route_mention(text: str) -> MentionRoute:
             "Hermes Main assigned",
         )
 
+    if mention == "computer-operator":
+        return MentionRoute(
+            mention,
+            (
+                "The user addressed @computer-operator. Hermes Main remains the "
+                "commander. Act as the Computer Operator within this foreground "
+                "Hermes Main run. Do not call delegate_task because a background "
+                "child's later approval cannot be delivered to the connected mobile. "
+                "Use the existing computer-use tools and safety mechanisms directly; "
+                "route every approval through this current run.\n\n"
+                f"User request: {request}"
+            ),
+            "Computer Operator assigned",
+        )
+
     display_name = mention.replace("-", " ").title()
     hermes_input = (
         f"The user addressed @{mention}. Hermes Main remains the commander. "
