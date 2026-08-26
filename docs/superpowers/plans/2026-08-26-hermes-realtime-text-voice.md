@@ -69,18 +69,19 @@
 
 ```python
 def test_control_parser_accepts_versioned_stop():
-    message = parse_control_packet(
-        b'{"version":1,"op_id":"op-17","command":"stop"}'
-    )
+    message = parse_control_packet(b'{"version":1,"op_id":"op-17","command":"stop"}')
     assert message == ControlMessage(1, "op-17", "stop", None)
 
+
 def test_control_parser_rejects_approve_and_unknown_fields():
-    assert parse_control_packet(
-        b'{"version":1,"op_id":"x","command":"approve"}'
-    ) is None
-    assert parse_control_packet(
-        b'{"version":1,"op_id":"x","command":"stop","secret":"x"}'
-    ) is None
+    assert (
+        parse_control_packet(b'{"version":1,"op_id":"x","command":"approve"}') is None
+    )
+    assert (
+        parse_control_packet(b'{"version":1,"op_id":"x","command":"stop","secret":"x"}')
+        is None
+    )
+
 
 def test_conversation_state_rotates_only_to_valid_identifier():
     state = ConversationState("conv-original")
@@ -88,6 +89,7 @@ def test_conversation_state_rotates_only_to_valid_identifier():
     assert state.current == "conv-next"
     assert state.reset("../../bad") is False
     assert state.current == "conv-next"
+
 
 def test_coder_mention_routes_through_hermes_main():
     route = route_mention("@coder backendটা check করো")
@@ -111,9 +113,18 @@ STATUS_TOPIC = "hermes.status"
 PROTOCOL_VERSION = 1
 SUPPORTED_COMMANDS = {"new", "stop", "status"}
 SUPPORTED_MENTIONS = {
-    "main", "architect", "researcher", "coder", "browser",
-    "computer-operator", "qa", "reviewer", "security", "ops",
+    "main",
+    "architect",
+    "researcher",
+    "coder",
+    "browser",
+    "computer-operator",
+    "qa",
+    "reviewer",
+    "security",
+    "ops",
 }
+
 
 @dataclass(frozen=True)
 class ControlMessage:
@@ -121,6 +132,7 @@ class ControlMessage:
     op_id: str
     command: str
     conversation_id: str | None = None
+
 
 @dataclass
 class ConversationState:
@@ -163,18 +175,23 @@ git commit -m "feat: add Hermes realtime protocol"
 
 ```python
 def test_tool_status_drops_preview_and_arguments():
-    status = safe_status_from_hermes({
-        "event": "tool.started",
-        "tool": "computer",
-        "preview": "contains private command",
-        "args": {"token": "secret"},
-    })
+    status = safe_status_from_hermes(
+        {
+            "event": "tool.started",
+            "tool": "computer",
+            "preview": "contains private command",
+            "args": {"token": "secret"},
+        }
+    )
     assert status == {"type": "tool.started", "tool": "computer"}
 
+
 def test_message_delta_is_not_republished_as_status():
-    assert safe_status_from_hermes({
-        "event": "message.delta", "delta": "private answer"
-    }) is None
+    assert (
+        safe_status_from_hermes({"event": "message.delta", "delta": "private answer"})
+        is None
+    )
+
 
 def test_latency_span_contains_durations_not_transcripts():
     span = LatencySpan("turn-1")
@@ -205,6 +222,7 @@ SAFE_EVENT_FIELDS = {
     "run.failed": (),
     "run.cancelled": (),
 }
+
 
 class StatusPublisher:
     def __init__(self, room: rtc.Room, destination_identity: str) -> None:
@@ -254,6 +272,7 @@ async def test_stream_uses_current_conversation_id_and_routes_mention():
     await consume(stream)
     assert fake_client.start_calls[0]["session_id"] == "conv-1"
     assert "Hermes Main" in fake_client.start_calls[0]["input"]
+
 
 async def test_stream_publishes_first_delta_and_safe_tool_status():
     fake_client.events = [
@@ -308,6 +327,7 @@ def test_room_options_stream_text_without_waiting_for_audio():
     options = build_room_options()
     assert options.text_output.sync_transcription is False
 
+
 async def test_new_control_resets_context_after_exact_identity_check():
     result = await handle_control_message(
         packet("new", identity="phone", conversation_id="conv-2"),
@@ -321,10 +341,14 @@ async def test_new_control_resets_context_after_exact_identity_check():
     assert fake_session.interrupt_calls == [True]
     assert fake_assistant.chat_context.items == []
 
+
 async def test_control_from_other_participant_is_ignored():
-    assert await handle_control_message(
-        packet("stop", identity="intruder"), allowed_identity="phone", **fixtures
-    ) is False
+    assert (
+        await handle_control_message(
+            packet("stop", identity="intruder"), allowed_identity="phone", **fixtures
+        )
+        is False
+    )
     assert fake_session.interrupt_calls == []
 ```
 
