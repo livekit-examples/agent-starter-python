@@ -84,7 +84,7 @@ async def test_status_publisher_targets_only_linked_identity():
 
     assert len(room.local_participant.calls) == 1
     call = room.local_participant.calls[0]
-    assert json.loads(call["text"]) == {"type": "run.completed"}
+    assert json.loads(call["text"]) == {"version": 1, "type": "run.completed"}
     assert call["topic"] == "hermes.status"
     assert call["destination_identities"] == ["phone-1"]
 

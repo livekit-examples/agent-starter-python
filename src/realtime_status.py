@@ -12,7 +12,7 @@ from typing import Any
 
 from livekit import rtc
 
-from realtime_protocol import STATUS_TOPIC
+from realtime_protocol import PROTOCOL_VERSION, STATUS_TOPIC
 
 logger = logging.getLogger("hermes-voice")
 
@@ -112,7 +112,11 @@ class StatusPublisher:
         self._destination_identity = destination_identity
 
     async def publish(self, event: dict[str, Any]) -> bool:
-        payload = json.dumps(event, separators=(",", ":"), ensure_ascii=False)
+        wire_event = {
+            "version": PROTOCOL_VERSION,
+            **{key: value for key, value in event.items() if key != "version"},
+        }
+        payload = json.dumps(wire_event, separators=(",", ":"), ensure_ascii=False)
         try:
             await self._room.local_participant.send_text(
                 payload,
