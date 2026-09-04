@@ -1,7 +1,7 @@
 # Runs the scenarios in scenarios.yaml against your agent on LiveKit Cloud.
 # Simulations spend real inference, so this runs on merges to main and on demand
-# rather than on every pull request push. Use `uv run pytest` for per-commit
-# checks, and `lk agent simulate --scenarios scenarios.yaml` locally while iterating.
+# rather than on every pull request push. Run
+# `lk agent simulate --scenarios scenarios.yaml` locally while iterating.
 name: Simulations
 
 on:
