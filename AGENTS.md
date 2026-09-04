@@ -42,9 +42,9 @@ Voice AI agents are highly sensitive to excessive latency. For this reason, it's
 
 ## Testing
 
-When possible, add tests for agent behavior. Read the [documentation](https://docs.livekit.io/agents/start/testing/), and refer to existing tests in the `tests/` directory.  Run tests with `uv run pytest`.
+When possible, add tests for agent behavior. Add a scenario to `scenarios.yaml` and run it with `lk agent simulate --scenarios scenarios.yaml`. The scenarios run in CI on every merge to main; read the [simulations documentation](https://docs.livekit.io/agents/start/testing/simulations/) before editing them.
 
-For multi-turn behavior, add a scenario to `scenarios.yaml` and run it with `lk agent simulate --scenarios scenarios.yaml`. The scenarios run in CI on every merge to main; read the [simulations documentation](https://docs.livekit.io/agents/start/testing/simulations/) before editing them.
+For turn-level checks that don't need a live session, use the in-process [testing framework](https://docs.livekit.io/agents/start/testing/); `tests/test_agent.py` has a commented-out example. Run those with `uv run pytest`.
 
 Important: When modifying core agent behavior such as instructions, tool descriptions, and tasks/workflows/handoffs, never just guess what will work. Always use test-driven development (TDD) and begin by writing tests for the desired behavior. For instance, if you're planning to add a new tool, write one or more tests for the tool's behavior, then iterate on the tool until the tests pass correctly. This will ensure you are able to produce a working, reliable agent for the user.
 
