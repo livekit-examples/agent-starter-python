@@ -105,7 +105,7 @@ uv run python src/agent.py console
 To run the agent for use with a frontend or telephony, use the `dev` command:
 
 ```console
-uv run python src/agent.py dev
+lk agent dev
 ```
 
 In production, use the `start` command:

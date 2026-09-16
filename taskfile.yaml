@@ -64,7 +64,7 @@ tasks:
       - echo ''
       - echo '{{ indent .INDENT "cd" }} {{ .REL_PATH }}'
       - task: help_install_hint_if_needed
-      - echo '{{ indent .INDENT "uv run" }} {{ .PYTHON_MAIN }} dev'
+      - echo '{{ indent .INDENT "lk agent dev" }}'
       - echo ''
       - echo 'Then visit:'
       - echo ''
@@ -90,4 +90,4 @@ tasks:
   dev:
     interactive: true
     cmds:
-      - "uv run src/agent.py dev"
+      - "lk agent dev"
