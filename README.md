@@ -112,7 +112,7 @@ Run this command to speak to your agent directly in your terminal:
 lk agent console
 ```
 
-To run the agent for use with a frontend or telephony, use the `dev` command, which reloads the agent whenever you change its source:
+To run the agent for use with a frontend or telephony, use the `dev` command, which adds hot reload on source changes and debug-level logging:
 
 ```console
 lk agent dev
