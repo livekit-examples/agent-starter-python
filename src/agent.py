@@ -31,9 +31,9 @@ class Assistant(Agent):
             # model. For other providers, see https://docs.livekit.io/agents/models/realtime/)
             # 1. Install livekit-agents[openai]
             # 2. Set OPENAI_API_KEY in .env.local
-            # 3. Add `from livekit.plugins.openai.realtime import GPTLiveModel` to the top of this file
+            # 3. Add `from livekit.plugins import openai` to the top of this file
             # 4. Replace the llm argument with:
-            #     llm=GPTLiveModel(voice="marin")
+            #    llm=openai.realtime.GPTLiveModel(voice="marin"),
             instructions=textwrap.dedent(
                 """\
                 You are a friendly, reliable voice assistant that answers questions, explains topics, and completes tasks with available tools.
