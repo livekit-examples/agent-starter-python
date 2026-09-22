@@ -6,9 +6,9 @@ The following is a guide for working with this project.
 
 ## Project structure
 
-This Python project uses the `uv` package manager. You should always use `uv` to install dependencies, run the agent, and run tests.
+This Python project uses the `uv` package manager. You should always use `uv` to install dependencies and run tests. To run the agent itself, use the LiveKit CLI: `lk agent console` to talk to it in the terminal, `lk agent dev` for a reloading development server, and `lk agent start` for production mode. See the [agent commands reference](https://docs.livekit.io/reference/developer-tools/livekit-cli/agent/) for the options each one accepts.
 
-All app-level code is in the `src/` directory. In general, simple agents can be constructed with a single `agent.py` file. Additional files can be added, but you must retain `agent.py` as the entrypoint (see the associated Dockerfile for how this is deployed).
+All app-level code is in the `src/` directory. In general, simple agents can be constructed with a single `agent.py` file. Additional files can be added, but you must retain `agent.py` as the entrypoint (the Dockerfile and the CLI's entrypoint detection both expect `src/agent.py`).
 
 Be sure to maintain code formatting. You can use the ruff formatter/linter as needed: `uv run ruff format` and `uv run ruff check`.
 
