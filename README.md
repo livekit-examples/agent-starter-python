@@ -28,10 +28,11 @@ The starter works with any [custom web or mobile frontend](https://docs.livekit.
 
 This project works with coding agents like [Claude Code](https://claude.com/product/claude-code), [Cursor](https://www.cursor.com/), and [Codex](https://openai.com/codex/).
 
-LiveKit offers both a CLI and an [MCP server](https://docs.livekit.io/reference/developer-tools/docs-mcp/) for browsing and searching its documentation. For example:
+LiveKit offers both a CLI and an [MCP server](https://docs.livekit.io/reference/developer-tools/docs-mcp/) for browsing and searching its documentation. Search returns short excerpts, so fetch the full page to read the details:
 
 ```console
 lk docs search "testing my agent"
+lk docs get-page /testing/unit-tests
 ```
 
 The project also includes an [`AGENTS.md`](AGENTS.md) file and the LiveKit Agents [skill](https://docs.livekit.io/intro/coding-agents/#agent-skills), so your coding agent follows LiveKit's best practices for workflows, handoffs, and testing. See the [coding agents guide](https://docs.livekit.io/intro/coding-agents/) for more details, including MCP server setup and how to update the skill.
