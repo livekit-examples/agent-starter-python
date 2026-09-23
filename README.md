@@ -8,17 +8,18 @@ A starter project for building voice AI apps with [LiveKit Agents for Python](ht
 
 The starter includes:
 
-- A simple voice AI assistant to extend and customize.
-- A voice pipeline built on [LiveKit Inference](https://docs.livekit.io/agents/models/inference), which gives you access to [models](https://docs.livekit.io/agents/models) from top labs with no extra configuration:
+- A simple [voice AI assistant](https://docs.livekit.io/agents/start/voice-ai/) to extend and customize.
+- A voice pipeline built on [LiveKit Inference](https://docs.livekit.io/agents/models/inference/), which gives you access to [models](https://docs.livekit.io/agents/models/) from top labs with no extra configuration:
   - The default LLM is Gemma 4 31B, an open-weight model [hosted by LiveKit](https://docs.livekit.io/agents/models/llm/livekit/) and tuned for voice AI.
-  - The default TTS is Fish Audio S2.1 Pro, which renders the inline delivery markup that expressive mode relies on.
+  - The default TTS is [Fish Audio S2.1 Pro](https://docs.livekit.io/agents/models/tts/fishaudio/), an expressive and cost-effective voice.
   - More than 50 other models are available from OpenAI, Cartesia, Deepgram, and other providers.
-  - [Realtime models](https://docs.livekit.io/agents/models/realtime) and many others are available through the plugin ecosystem.
-- Expressive mode, on by default. The framework adds the TTS provider's markup guide to the LLM prompt, so the model emits inline delivery tags (emotion, pacing, non-verbal sounds) that the TTS renders and the transcript omits.
-- [LiveKit Turn Detector](https://docs.livekit.io/agents/logic/turns/turn-detector/), an end-of-turn model that listens to the user's audio directly and combines semantic understanding with acoustic cues, in 14 languages.
+  - [Realtime models](https://docs.livekit.io/agents/models/realtime/) and many others are available through the [plugin ecosystem](https://docs.livekit.io/agents/models/#plugins).
+- [Expressive mode](https://docs.livekit.io/agents/models/tts/expressive/), on by default, so your agent's voice carries emotion and pacing that fit the conversation.
+- [LiveKit Turn Detector](https://docs.livekit.io/agents/logic/turns/turn-detector/), which knows when the user has finished speaking, in 14 languages.
+- [Adaptive interruption handling](https://docs.livekit.io/agents/logic/turns/adaptive-interruption-handling/), which tells a real interruption from an "uh-huh" or background noise, so your agent doesn't stop talking when it shouldn't.
 - [Background voice cancellation](https://docs.livekit.io/transport/media/noise-cancellation/).
-- Session insights from LiveKit [Agent Observability](https://docs.livekit.io/deploy/observability/).
-- [Simulations](https://docs.livekit.io/agents/start/testing/simulations/) that test full conversations with your agent, run in CI on every merge to `main`.
+- Session transcripts, traces, and recordings from LiveKit [Agent Observability](https://docs.livekit.io/testing/observability/).
+- [Simulations](https://docs.livekit.io/testing/simulations/) that test full conversations with your agent, run in CI on every merge to `main`.
 - A `Dockerfile` for [deploying to LiveKit Cloud](https://docs.livekit.io/deploy/agents/).
 
 The starter works with any [custom web or mobile frontend](https://docs.livekit.io/frontends/) or with [telephony](https://docs.livekit.io/telephony/).
@@ -33,7 +34,7 @@ LiveKit offers both a CLI and an [MCP server](https://docs.livekit.io/reference/
 lk docs search "testing my agent"
 ```
 
-See the [coding agents guide](https://docs.livekit.io/intro/coding-agents/) for more details, including MCP server setup.
+The project also includes an [`AGENTS.md`](AGENTS.md) file and the LiveKit Agents [skill](https://docs.livekit.io/intro/coding-agents/#agent-skills), so your coding agent follows LiveKit's best practices for workflows, handoffs, and testing. See the [coding agents guide](https://docs.livekit.io/intro/coding-agents/) for more details, including MCP server setup and how to update the skill.
 
 ## Dev setup
 
@@ -80,7 +81,7 @@ The `lk agent console` and `lk agent dev` commands run your agent on your own ma
 lk agent console
 ```
 
-To connect it to LiveKit Cloud so a frontend or phone call can reach it:
+To connect it to LiveKit Cloud so a frontend, a phone call, or the [Agent Console](https://docs.livekit.io/testing/agent-console/) can reach it:
 
 ```console
 lk agent dev
@@ -108,7 +109,7 @@ Pair the agent with a prebuilt frontend starter, or add telephony:
 
 For more options, see the [frontend guide](https://docs.livekit.io/frontends/).
 
-## Tests and evals
+## Testing and debugging
 
 Simulations run full multi-turn conversations between a simulated user and your agent on LiveKit Cloud, then judge each transcript. The scenarios live in [`scenarios.yaml`](scenarios.yaml). Run them locally with the CLI:
 
@@ -116,9 +117,11 @@ Simulations run full multi-turn conversations between a simulated user and your 
 lk agent simulate --scenarios scenarios.yaml
 ```
 
-The `Simulations` workflow in [`.github/workflows/simulations.yml`](.github/workflows/simulations.yml) runs the same file on every merge to `main`, and on demand from the Actions tab. It doesn't run on every pull request push because each run uses real inference. See the [simulations guide](https://docs.livekit.io/agents/start/testing/simulations/) for how to write scenarios and read results.
+The `Simulations` workflow in [`.github/workflows/simulations.yml`](.github/workflows/simulations.yml) runs the same file on every merge to `main`, and on demand from the Actions tab. It doesn't run on every pull request push because each run uses real inference. See the [simulations guide](https://docs.livekit.io/testing/simulations/) for how to write scenarios and read results.
 
-For turn-level checks that don't need a live session, the LiveKit Agents [testing and evaluation framework](https://docs.livekit.io/agents/start/testing/) runs your agent in-process under `pytest`. [`tests/test_agent.py`](tests/test_agent.py) has a commented-out example.
+For turn-level checks that don't need a live session, the LiveKit Agents [unit testing framework](https://docs.livekit.io/testing/unit-tests/) runs your agent in-process under `pytest`. [`tests/test_agent.py`](tests/test_agent.py) has a commented-out example.
+
+To debug a running agent, open it in the [Agent Console](https://docs.livekit.io/testing/agent-console/). It shows events, tool calls, and model timing as you talk to the agent. To stream logs from a deployed agent, run `lk agent logs`.
 
 ## Using this template for your own project
 

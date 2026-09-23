@@ -32,17 +32,31 @@ For deeper IDE integration, LiveKit also offers an [MCP server](https://docs.liv
 
 If you use the LiveKit CLI or MCP server to search or browse documentation, also submit constructive feedback to LiveKit with `lk docs submit-feedback` or the MCP `submit_docs_feedback` tool. Add this to your to-do list when planning work, so you file feedback after completing your other tasks. Useful feedback includes incomplete documentation, broken examples, missing steps, or any other gap or issue in the docs.
 
+## LiveKit Agents skill
+
+This project includes the `livekit-agents` skill in `.claude/skills/` and `.agents/skills/`. It covers how to approach agent architecture, workflows, handoffs, tasks, and testing, and it defers to the live documentation for API details. If your tool doesn't load skills automatically, read `.agents/skills/livekit-agents/SKILL.md` before you design or restructure an agent.
+
 ## Handoffs and tasks ("workflows")
 
-Voice AI agents are highly sensitive to latency. Design complex agents in a structured way that keeps irrelevant context and unneeded tools out of each LLM request. LiveKit Agents supports handoffs, where one agent hands control to another, and tasks, which are tightly scoped prompts that achieve a specific outcome, for building reliable workflows. Use them instead of long instruction prompts that cover several phases of a conversation. See the [workflows documentation](https://docs.livekit.io/agents/build/workflows/) for more information.
+Voice AI agents are highly sensitive to latency. Design complex agents in a structured way that keeps irrelevant context and unneeded tools out of each LLM request. LiveKit Agents supports handoffs, where one agent hands control to another, and tasks, which are tightly scoped prompts that achieve a specific outcome, for building reliable workflows. Use them instead of long instruction prompts that cover several phases of a conversation. See the [workflows documentation](https://docs.livekit.io/agents/logic/workflows/) for more information.
 
 ## Testing
 
-When possible, add tests for agent behavior. Add a scenario to `scenarios.yaml` and run it with `lk agent simulate --scenarios scenarios.yaml`. The scenarios run in CI on every merge to `main`. Read the [simulations documentation](https://docs.livekit.io/agents/start/testing/simulations/) before editing them.
+When possible, add tests for agent behavior. Add a scenario to `scenarios.yaml` and run it with `lk agent simulate --scenarios scenarios.yaml`. The scenarios run in CI on every merge to `main`. Read the [simulations documentation](https://docs.livekit.io/testing/simulations/) before editing them.
 
-For turn-level checks that don't need a live session, use the in-process [testing framework](https://docs.livekit.io/agents/start/testing/). `tests/test_agent.py` has a commented-out example. Run those tests with `uv run pytest`.
+For turn-level checks that don't need a live session, use the in-process [unit testing framework](https://docs.livekit.io/testing/unit-tests/). `tests/test_agent.py` has a commented-out example. Run those tests with `uv run pytest`.
 
 Important: when you modify core agent behavior such as instructions, tool descriptions, or tasks, workflows, and handoffs, never guess at what works. Use test-driven development (TDD) and start by writing tests for the desired behavior. For example, if you're adding a tool, write one or more tests for the tool's behavior, then iterate on the tool until the tests pass. This is how you produce a working, reliable agent.
+
+## Debugging
+
+To investigate unexpected agent behavior:
+
+- Reproduce it in a unit test or simulation scenario first, so you have a repeatable case to iterate against.
+- Run `lk agent dev --log-level DEBUG` for verbose logs from a local agent.
+- Run `lk agent logs` to stream logs from a deployed agent.
+- Ask the developer to open the [Agent Console](https://docs.livekit.io/testing/agent-console/), which shows events, tool calls, and model timing for a live session.
+- For sessions with real users, check [Agent Observability](https://docs.livekit.io/testing/observability/) for transcripts, traces, logs, and recordings.
 
 ## Other CLI commands
 
