@@ -42,7 +42,7 @@ Voice AI agents are highly sensitive to excessive latency. For this reason, it's
 
 ## Testing
 
-When possible, add tests for agent behavior. Add a scenario to `scenarios.yaml` and run it with `lk agent simulate --scenarios scenarios.yaml`. The scenarios run in CI on every merge to main; read the [simulations documentation](https://docs.livekit.io/agents/start/testing/simulations/) before editing them.
+When possible, add tests for agent behavior. Add a scenario to `scenarios.yaml` and run it with `lk agent simulate text --scenarios scenarios.yaml`. The scenarios run in CI on every merge to main; read the [simulations documentation](https://docs.livekit.io/agents/start/testing/simulations/) before editing them.
 
 For turn-level checks that don't need a live session, use the in-process [testing framework](https://docs.livekit.io/agents/start/testing/); `tests/test_agent.py` has a commented-out example. Run those with `uv run pytest`.
 
