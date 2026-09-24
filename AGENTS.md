@@ -22,7 +22,7 @@ Install or update the CLI:
 - **Linux:** `curl -sSL https://get.livekit.io/cli | bash`
 - **Windows:** `winget install LiveKit.LiveKitCLI` (update: `winget upgrade LiveKit.LiveKitCLI`)
 
-Run `lk docs --help` to see all available commands. Key commands: `lk docs overview`, `lk docs search`, `lk docs get-page`, `lk docs code-search`, `lk docs changelog`, and `lk docs submit-feedback`. Run `lk docs <command> --help` before using a command for the first time, because the help text explains how to use it and how to interpret results. Prefer browsing (`overview`, `get-page`) over search, and prefer `search` over `code-search`, because docs pages are more current and give better context than raw code. Search results are short excerpts, so fetch the full page with `lk docs get-page` before you act on one.
+Run `lk docs` for the first time, because the help text explains how to use it and how to interpret results.
 
 ### LiveKit docs MCP server
 
