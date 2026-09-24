@@ -36,11 +36,11 @@ lk docs search "testing my agent"
 lk docs get-page /testing/unit-tests
 ```
 
-The project also includes an [`AGENTS.md`](AGENTS.md) file and the LiveKit Agents [skill](https://docs.livekit.io/intro/coding-agents/#agent-skills), so your coding agent follows LiveKit's best practices for workflows, handoffs, and testing. See the [coding agents guide](https://docs.livekit.io/intro/coding-agents/) for more details, including MCP server setup and how to update the skill.
+The project also includes an [`AGENTS.md`](AGENTS.md) file and the LiveKit Agents [skill](https://docs.livekit.io/intro/coding-agents/#agent-skills), so your coding agent follows LiveKit's best practices for workflows, handoffs, and testing, and tries its changes with the [agent debugger](https://docs.livekit.io/testing/debugger/). See the [coding agents guide](https://docs.livekit.io/intro/coding-agents/) for more details, including MCP server setup and how to update the skill.
 
 ## Dev setup
 
-Install the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/), version 2.15.0 or later:
+Install the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/), version 2.18.8 or later:
 
 - **macOS:** `brew install livekit-cli`
 - **Linux:** `curl -sSL https://get.livekit.io/cli | bash`
@@ -77,7 +77,7 @@ lk app env --write --destination .env.local
 
 ## Run the agent
 
-The `lk agent console` and `lk agent dev` commands run your agent on your own machine. To talk to it in your terminal:
+The `lk agent console`, `lk agent dev`, and `lk agent debugger` commands run your agent on your own machine. To talk to it in your terminal:
 
 ```console
 lk agent console
@@ -87,6 +87,14 @@ To connect it to LiveKit Cloud so a frontend, a phone call, or the [Agent Consol
 
 ```console
 lk agent dev
+```
+
+To let a coding agent or a script test it one text turn at a time, use the [agent debugger](https://docs.livekit.io/testing/debugger/). Each turn prints the agent's reply along with the tool calls and handoffs behind it:
+
+```console
+lk agent debugger start
+lk agent debugger say "Hi, what can you do?"
+lk agent debugger stop
 ```
 
 In production, run the agent directly:

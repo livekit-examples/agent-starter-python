@@ -48,15 +48,18 @@ For turn-level checks that don't need a live session, use the in-process [unit t
 
 Important: when you modify core agent behavior such as instructions, tool descriptions, or tasks, workflows, and handoffs, never guess at what works. Use test-driven development (TDD) and start by writing tests for the desired behavior. For example, if you're adding a tool, write one or more tests for the tool's behavior, then iterate on the tool until the tests pass. This is how you produce a working, reliable agent.
 
+After changing the agent, try it with the [agent debugger](https://docs.livekit.io/testing/debugger/) (CLI 2.18.8 or later) before calling the change done. Start the agent with `lk agent debugger start`, send user turns with `lk agent debugger say "..."`, and read the tool calls in each turn as well as the reply. Run `lk agent debugger restart` after every code edit, since a running session keeps the old code, and `lk agent debugger stop` when you're done.
+
 ## Debugging
 
 To investigate unexpected agent behavior:
 
-- Reproduce it in a unit test or simulation scenario first, so you have a repeatable case to iterate against.
-- Run `lk agent dev --log-level DEBUG` for verbose logs from a local agent.
+- Reproduce it with `lk agent debugger`: send the turns that trigger the problem and read the tool calls and errors in each one. Add `--logs` to `say` to see log lines, including tracebacks, next to the turn that produced them.
+- Add a unit test or simulation scenario once it's fixed, so a later change can't bring it back unnoticed.
+- Run `lk agent dev --log-level DEBUG` for verbose logs from a local agent connected to LiveKit Cloud.
 - Run `lk agent logs` to stream logs from a deployed agent.
-- Ask the developer to open the [Agent Console](https://docs.livekit.io/testing/agent-console/), which shows events, tool calls, and model timing for a live session.
-- For sessions with real users, check [Agent Observability](https://docs.livekit.io/testing/observability/) for transcripts, traces, logs, and recordings.
+- Ask the developer to open the [Agent Console](https://docs.livekit.io/testing/agent-console/) for speech problems such as turn-taking, interruptions, or transcription, which the text-only debugger can't show. It shows events, tool calls, and model timing for a live session.
+- Check [Agent Observability](https://docs.livekit.io/testing/observability/) for transcripts, traces, logs, and recordings of sessions with real users.
 
 ## Other CLI commands
 
