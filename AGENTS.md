@@ -10,7 +10,7 @@ Be sure to maintain code formatting, using `uv run ruff format` and `uv run ruff
 
 ## LiveKit documentation
 
-LiveKit Agents changes quickly, and its documentation is updated often. Always refer to the latest documentation when working with this project. LiveKit offers both a CLI and an MCP server for browsing and searching its documentation. If the developer hasn't installed the CLI yet, recommend that they install it.
+Always refer to the latest documentation when working with this project. LiveKit offers both a CLI (`lk docs`) and an MCP server for browsing and searching its documentation.
 
 ### LiveKit CLI
 
