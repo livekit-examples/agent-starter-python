@@ -129,7 +129,7 @@ lk agent simulate --scenarios scenarios.yaml
 
 The `Simulations` workflow in [`.github/workflows/simulations.yml`](.github/workflows/simulations.yml) runs the same file on every merge to `main`, and on demand from the Actions tab. It doesn't run on every pull request push because each run uses real inference. See the [simulations guide](https://docs.livekit.io/testing/simulations/) for how to write scenarios and read results.
 
-For turn-level checks that don't need a live session, the LiveKit Agents [unit testing framework](https://docs.livekit.io/testing/unit-tests/) runs your agent in-process under `pytest`. [`tests/test_agent.py`](tests/test_agent.py) has a commented-out example.
+To check a change turn by turn without a live session, use the [agent debugger](https://docs.livekit.io/testing/debugger/) shown in [Run the agent](#run-the-agent).
 
 To debug a running agent, open it in the [Agent Console](https://docs.livekit.io/testing/agent-console/). It shows events, tool calls, and model timing as you talk to the agent. To stream logs from a deployed agent, run `lk agent logs`.
 
