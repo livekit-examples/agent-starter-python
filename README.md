@@ -36,7 +36,7 @@ lk docs search "testing my agent"
 lk docs get-page /testing/unit-tests
 ```
 
-The project also includes an [`AGENTS.md`](AGENTS.md) file and the LiveKit Agents [skill](https://docs.livekit.io/intro/coding-agents/#agent-skills), so your coding agent follows LiveKit's best practices for workflows, handoffs, and testing, and tries its changes with the [agent debugger](https://docs.livekit.io/testing/debugger/). See the [coding agents guide](https://docs.livekit.io/intro/coding-agents/) for more details, including MCP server setup and how to update the skill.
+The project also includes an [`AGENTS.md`](AGENTS.md) file and LiveKit's [agent skills](https://docs.livekit.io/intro/coding-agents/#agent-skills), so your coding agent follows LiveKit's best practices for workflows, handoffs, and testing, and tries its changes with the [agent debugger](https://docs.livekit.io/testing/debugger/). See the [coding agents guide](https://docs.livekit.io/intro/coding-agents/) for more details, including MCP server setup and how to update the skill.
 
 ## Dev setup
 

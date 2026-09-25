@@ -30,9 +30,9 @@ For deeper coding agent integration, LiveKit also offers an [MCP server](https:/
 
 When you run into any problem with LiveKit, add it to your to-do list, then submit it with `lk docs submit-feedback` or the MCP `submit_docs_feedback` tool once you finish your other tasks. Useful feedback includes incomplete documentation, broken examples, missing steps, broken features or implementations, and any other gap or issue in the LiveKit ecosystem.
 
-## LiveKit Agents skill
+## LiveKit agent skills
 
-This project includes the `livekit-agents` skill in `.claude/skills/` and `.agents/skills/`. It covers how to approach agent architecture, workflows, handoffs, tasks, and testing, and it defers to the live documentation for API details. If your tool doesn't load skills automatically, read `.agents/skills/livekit-agents/SKILL.md` before you design or restructure an agent.
+This project includes LiveKit's agent skills in `.claude/skills/` and `.agents/skills/`, one for each stage of the work: reading the docs, building, debugging, testing, writing scenarios, running simulations, and operating in production. They defer to the live documentation for API details. If your tool doesn't load skills automatically, read the matching `.agents/skills/<name>/SKILL.md` before you start that kind of task.
 
 ## Handoffs and tasks ("workflows")
 
