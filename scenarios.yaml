@@ -1,6 +1,6 @@
 # Simulation scenarios for the starter assistant. Each one is a conversation a
 # simulated user has with your agent, judged against agent_expectations. Run them
-# with `lk agent simulate --scenarios scenarios.yaml`; the Simulations workflow
+# with `lk agent simulate text --scenarios scenarios.yaml`; the Simulations workflow
 # runs them on every merge to main.
 #
 # Add a scenario whenever you change instructions or add a tool, and pin any dates
