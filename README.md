@@ -124,7 +124,7 @@ For more options, see the [frontend guide](https://docs.livekit.io/frontends/).
 Simulations run full multi-turn conversations between a simulated user and your agent on LiveKit Cloud, then judge each transcript. The scenarios live in [`scenarios.yaml`](scenarios.yaml). Run them locally with the CLI:
 
 ```console
-lk agent simulate --scenarios scenarios.yaml
+lk agent simulate text --scenarios scenarios.yaml
 ```
 
 The `Simulations` workflow in [`.github/workflows/simulations.yml`](.github/workflows/simulations.yml) runs the same file on every merge to `main`, and on demand from the Actions tab. It doesn't run on every pull request push because each run uses real inference. See the [simulations guide](https://docs.livekit.io/testing/simulations/) for how to write scenarios and read results.
