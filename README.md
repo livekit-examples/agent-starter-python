@@ -25,30 +25,7 @@ The starter includes:
 
 The starter works with any [custom web or mobile frontend](https://docs.livekit.io/frontends/) or with [telephony](https://docs.livekit.io/telephony/).
 
-## Using coding agents
-
-This project works with coding agents like [Claude Code](https://claude.com/product/claude-code), [Cursor](https://www.cursor.com/), and [Codex](https://openai.com/codex/).
-
-**Agent skills.** LiveKit's [agent skills](https://docs.livekit.io/reference/developer-tools/agent-skills/) guide your coding agent through building, debugging, testing, and deploying. `lk agent init` installs them (see [Dev setup](#dev-setup)). If you created the project another way, run this in the project directory:
-
-```console
-lk skills install
-```
-
-To get the latest skills, run `lk skills update`.
-
-**`AGENTS.md`.** Teaches your coding agent LiveKit's best practices for workflows, handoffs, and testing, and has it check its changes with the [agent debugger](https://docs.livekit.io/testing/debugger/).
-
-**Docs.** Search and read the LiveKit docs with the CLI or the [MCP server](https://docs.livekit.io/reference/developer-tools/docs-mcp/):
-
-```console
-lk docs search "testing my agent"
-lk docs get-page /testing/unit-tests
-```
-
-For more, see the [coding agents guide](https://docs.livekit.io/intro/coding-agents/).
-
-## Dev setup
+## Getting started
 
 Install the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/), version 2.19.0 or later:
 
@@ -65,7 +42,7 @@ lk cloud auth
 lk agent init my-agent --template agent-starter-python
 ```
 
-The CLI clones this starter, writes your credentials to `.env.local`, and installs dependencies and agent skills.
+The CLI clones this starter, writes your credentials to `.env.local`, and installs dependencies and [agent skills](#using-coding-agents) for your coding agents.
 
 > [!TIP]
 > Use this command instead of GitHub's **Use this template** button, which skips the skills and credentials.
@@ -97,6 +74,29 @@ lk skills install
 ```
 
 </details>
+
+## Using coding agents
+
+This project works with coding agents like [Claude Code](https://claude.com/product/claude-code), [Cursor](https://www.cursor.com/), and [Codex](https://openai.com/codex/).
+
+**Agent skills.** Install LiveKit's [agent skills](https://docs.livekit.io/reference/developer-tools/agent-skills/), which teach your coding agent to build, debug, test, and deploy LiveKit agents:
+
+```console
+lk skills install
+```
+
+To get the latest skills, run `lk skills update`.
+
+**`AGENTS.md`.** Teaches your coding agent LiveKit's best practices for workflows, handoffs, and testing, and has it check its changes with the [agent debugger](https://docs.livekit.io/testing/debugger/).
+
+**Docs.** Search and read the LiveKit docs with the CLI or the [MCP server](https://docs.livekit.io/reference/developer-tools/docs-mcp/):
+
+```console
+lk docs search "testing my agent"
+lk docs get-page /testing/unit-tests
+```
+
+For more, see the [coding agents guide](https://docs.livekit.io/intro/coding-agents/).
 
 ## Run the agent
 
