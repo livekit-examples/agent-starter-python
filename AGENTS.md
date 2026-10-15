@@ -32,9 +32,9 @@ When you run into any problem with LiveKit, add it to your to-do list, then subm
 
 ## LiveKit agent skills
 
-LiveKit publishes agent skills for each stage of the work: reading the docs, building, debugging, testing, writing scenarios, running simulations, and operating in production. They defer to the live documentation for API details.
+LiveKit's agent skills cover each stage of the work: reading the docs, building, debugging, testing, writing scenarios, running simulations, and operating in production. Use them.
 
-The skills aren't bundled with this project. If they aren't available to you, ask the developer to run `lk skills install` (LiveKit CLI 2.19.0 or later), which also adds the LiveKit Docs MCP server. If your tool doesn't load skills automatically, read the matching `.agents/skills/<name>/SKILL.md` before you start that kind of task.
+If they aren't installed, install them with `lk skills install --yes` (LiveKit CLI 2.19.0 or later). This also adds the LiveKit Docs MCP server. New skills load in your next session, so until then, read the matching `.agents/skills/<name>/SKILL.md` before you start that kind of task.
 
 ## Handoffs and tasks ("workflows")
 
