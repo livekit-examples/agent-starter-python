@@ -29,7 +29,7 @@ The starter works with any [custom web or mobile frontend](https://docs.livekit.
 
 This project works with coding agents like [Claude Code](https://claude.com/product/claude-code), [Cursor](https://www.cursor.com/), and [Codex](https://openai.com/codex/). LiveKit gives them three things to work with.
 
-**Agent skills.** LiveKit's [agent skills](https://docs.livekit.io/reference/developer-tools/agent-skills/) guide your coding agent through each stage of the work, from building and debugging to testing and deploying. The skills aren't included in this repository. `lk agent init` installs them when it creates your project (see [Dev setup](#dev-setup)). If you created your project another way, such as with GitHub's **Use this template** button or `git clone`, install them from the project directory:
+**Agent skills.** LiveKit's [agent skills](https://docs.livekit.io/reference/developer-tools/agent-skills/) guide your coding agent through each stage of the work, from building and debugging to testing and deploying. The skills aren't included in this repository. Create your project with `lk agent init my-agent --template agent-starter-python` and the CLI installs them for you (see [Dev setup](#dev-setup)). If you created your project another way, such as with GitHub's **Use this template** button or `git clone`, install them from the project directory:
 
 ```console
 lk skills install
@@ -66,7 +66,7 @@ lk agent init my-agent --template agent-starter-python
 ```
 
 > [!TIP]
-> Use `lk agent init` instead of GitHub's **Use this template** button. A repository created on GitHub doesn't include the agent skills or your credentials, so you'd need to set them up yourself as described in the following section.
+> Use `lk agent init my-agent --template agent-starter-python` instead of GitHub's **Use this template** button. A repository created on GitHub doesn't include the agent skills or your credentials, so you'd need to set them up yourself as described in the following section.
 
 <details>
 <summary>Set up the project manually</summary>
