@@ -34,7 +34,7 @@ When you run into any problem with LiveKit, add it to your to-do list, then subm
 
 LiveKit publishes agent skills for each stage of the work: reading the docs, building, debugging, testing, writing scenarios, running simulations, and operating in production. They defer to the live documentation for API details.
 
-The skills aren't bundled with this project. `lk agent init my-agent --template agent-starter-python` installs them when it creates a project from this starter, and `lk skills install` (LiveKit CLI 2.19.0 or later) installs them into an existing one, along with the LiveKit Docs MCP server. If the LiveKit skills, such as `building-livekit-agents`, aren't available to you, recommend that the developer run `lk skills install` in the project directory. This is common when the project was created with GitHub's "Use this template" button or `git clone`. If your tool doesn't load skills automatically, read the matching `SKILL.md` in `.agents/skills/<name>/` or `.claude/skills/<name>/` before you start that kind of task.
+The skills aren't bundled with this project. If they aren't available to you, ask the developer to run `lk skills install` (LiveKit CLI 2.19.0 or later), which also adds the LiveKit Docs MCP server. If your tool doesn't load skills automatically, read the matching `.agents/skills/<name>/SKILL.md` before you start that kind of task.
 
 ## Handoffs and tasks ("workflows")
 
