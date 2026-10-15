@@ -27,28 +27,30 @@ The starter works with any [custom web or mobile frontend](https://docs.livekit.
 
 ## Using coding agents
 
-This project works with coding agents like [Claude Code](https://claude.com/product/claude-code), [Cursor](https://www.cursor.com/), and [Codex](https://openai.com/codex/).
+This project works with coding agents like [Claude Code](https://claude.com/product/claude-code), [Cursor](https://www.cursor.com/), and [Codex](https://openai.com/codex/). LiveKit gives them three things to work with.
 
-LiveKit offers both a CLI and an [MCP server](https://docs.livekit.io/reference/developer-tools/docs-mcp/) for browsing and searching its documentation. Search returns short excerpts, so fetch the full page to read the details:
+**Agent skills.** LiveKit's [agent skills](https://docs.livekit.io/reference/developer-tools/agent-skills/) guide your coding agent through each stage of the work, from building and debugging to testing and deploying. The skills aren't included in this repository. `lk agent init` installs them when it creates your project (see [Dev setup](#dev-setup)). If you created your project another way, such as with GitHub's **Use this template** button or `git clone`, install them from the project directory:
+
+```console
+lk skills install
+```
+
+The CLI installs the skills for the coding agents it finds on your machine and adds the LiveKit Docs MCP server to their config. Run `lk skills update` to get the latest skills.
+
+**`AGENTS.md`.** The project includes an [`AGENTS.md`](AGENTS.md) file, so your coding agent follows LiveKit's best practices for workflows, handoffs, and testing, and tries its changes with the [agent debugger](https://docs.livekit.io/testing/debugger/).
+
+**Docs access.** LiveKit offers both a CLI and an [MCP server](https://docs.livekit.io/reference/developer-tools/docs-mcp/) for browsing and searching its documentation. Search returns short excerpts, so fetch the full page to read the details:
 
 ```console
 lk docs search "testing my agent"
 lk docs get-page /testing/unit-tests
 ```
 
-The project also includes an [`AGENTS.md`](AGENTS.md) file, so your coding agent follows LiveKit's best practices for workflows, handoffs, and testing, and tries its changes with the [agent debugger](https://docs.livekit.io/testing/debugger/).
-
-For more guidance at each stage of the work, from building and debugging to testing and deploying, install LiveKit's [agent skills](https://docs.livekit.io/intro/coding-agents/#agent-skills). The CLI installs them for the coding agents on your machine and adds the Docs MCP server to their config. `lk agent init` offers to do this when it creates your project, or you can run it yourself:
-
-```console
-lk skills install
-```
-
-Run `lk skills update` to get the latest skills, and commit `skills-lock.json` along with them. See the [coding agents guide](https://docs.livekit.io/intro/coding-agents/) for more details.
+See the [coding agents guide](https://docs.livekit.io/intro/coding-agents/) for more details.
 
 ## Dev setup
 
-Install the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/), version 2.18.8 or later:
+Install the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/), version 2.19.0 or later:
 
 - **macOS:** `brew install livekit-cli`
 - **Linux:** `curl -sSL https://get.livekit.io/cli | bash`
@@ -56,12 +58,15 @@ Install the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/), version 2.
 
 Check your version with `lk --version`. To update an existing install, see [Update the CLI](https://docs.livekit.io/reference/developer-tools/livekit-cli/#updates).
 
-Then create a project from this template. The CLI clones the template and configures your environment:
+Then create your project with `lk agent init`. The CLI clones this template, writes your LiveKit Cloud credentials to `.env.local`, and offers to install dependencies and LiveKit's [agent skills](#using-coding-agents) for your coding agents:
 
 ```console
 lk cloud auth
 lk agent init my-agent --template agent-starter-python
 ```
+
+> [!TIP]
+> Use `lk agent init` instead of GitHub's **Use this template** button. A repository created on GitHub doesn't include the agent skills or your credentials, so you'd need to set them up yourself as described in the following section.
 
 <details>
 <summary>Set up the project manually</summary>
@@ -74,11 +79,19 @@ cd agent-starter-python
 uv sync
 ```
 
+If you created your own repository from this template on GitHub, clone that repository instead.
+
 Sign up for [LiveKit Cloud](https://cloud.livekit.io/), then copy `.env.example` to `.env.local` and fill it in. To have the CLI write your project's URL and API keys into the file instead, run:
 
 ```console
 lk cloud auth
 lk app env --write --destination .env.local
+```
+
+Then install LiveKit's agent skills for your coding agents:
+
+```console
+lk skills install
 ```
 
 </details>
@@ -146,6 +159,7 @@ To debug a running agent, open it in the [Agent Console](https://docs.livekit.io
 After you create your own project from this template:
 
 - **Commit `uv.lock`.** The template doesn't track it, but your project should, for reproducible builds. If you deploy to LiveKit Cloud, commit `livekit.toml` too.
+- **Commit the agent skills.** If you installed the [agent skills](#using-coding-agents) into the project, commit the skill directories and `skills-lock.json` so everyone working on the project gets the same skills. If they aren't installed yet, run `lk skills install`.
 - **Add repository secrets.** Add `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` as [repository secrets](https://docs.github.com/en/actions/how-tos/writing-workflows/choosing-what-your-workflow-does/using-secrets-in-github-actions) so the simulations can run in CI.
 
 ## Deploying to production
