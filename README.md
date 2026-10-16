@@ -8,6 +8,8 @@ A starter project for building voice AI apps with [LiveKit Agents for Python](ht
 
 ## Getting started
 
+1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/), which manages Python and the project's dependencies.
+
 1. Install the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/) and sign in to LiveKit Cloud:
 
    - **macOS:** `brew install livekit-cli`
@@ -30,6 +32,7 @@ A starter project for building voice AI apps with [LiveKit Agents for Python](ht
 
    ```console
    cd my-agent
+   uv sync
    lk agent console
    ```
 
