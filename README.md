@@ -60,13 +60,6 @@ To get the latest skills, run `lk skills update`.
 
 **`AGENTS.md`.** Teaches your coding agent LiveKit's best practices for workflows, handoffs, and testing, and has it check its changes with the [agent debugger](https://docs.livekit.io/testing/debugger/).
 
-**Docs.** Search and read the LiveKit docs with the CLI or the [MCP server](https://docs.livekit.io/reference/developer-tools/docs-mcp/):
-
-```console
-lk docs search "testing my agent"
-lk docs get-page /testing/unit-tests
-```
-
 For more, see the [coding agents guide](https://docs.livekit.io/intro/coding-agents/).
 
 ## Run the agent
