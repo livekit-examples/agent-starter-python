@@ -8,22 +8,25 @@ A starter project for building voice AI apps with [LiveKit Agents for Python](ht
 
 ## Getting started
 
-Install the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/):
+1. Install the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/):
 
-- **macOS:** `brew install livekit-cli`
-- **Linux:** `curl -sSL https://get.livekit.io/cli | bash`
-- **Windows:** `winget install LiveKit.LiveKitCLI`
+   - **macOS:** `brew install livekit-cli`
+   - **Linux:** `curl -sSL https://get.livekit.io/cli | bash`
+   - **Windows:** `winget install LiveKit.LiveKitCLI`
 
-Create your project and talk to your agent:
+1. Create your project from this starter. The CLI writes your LiveKit Cloud credentials to `.env.local` and installs dependencies and [agent skills](#using-coding-agents) for your coding agents:
 
-```console
-lk cloud auth
-lk agent init my-agent --template agent-starter-python
-cd my-agent
-lk agent console
-```
+   ```console
+   lk cloud auth
+   lk agent init my-agent --template agent-starter-python
+   ```
 
-`lk agent init` creates your project from this starter, writes your LiveKit Cloud credentials to `.env.local`, and installs dependencies and [agent skills](#using-coding-agents) for your coding agents.
+1. Talk to your agent. Run it in your terminal and speak into your microphone:
+
+   ```console
+   cd my-agent
+   lk agent console
+   ```
 
 ## What's included
 
@@ -45,22 +48,6 @@ The starter includes:
 - A `Dockerfile` for [deploying to LiveKit Cloud](https://docs.livekit.io/deploy/agents/).
 
 The starter works with any [custom web or mobile frontend](https://docs.livekit.io/frontends/) or with [telephony](https://docs.livekit.io/telephony/).
-
-## Using coding agents
-
-This project works with coding agents like [Claude Code](https://claude.com/product/claude-code), [Cursor](https://www.cursor.com/), and [Codex](https://openai.com/codex/).
-
-**Agent skills.** Install LiveKit's [agent skills](https://docs.livekit.io/reference/developer-tools/agent-skills/), which teach your coding agent to build, debug, test, and deploy LiveKit agents:
-
-```console
-lk skills install
-```
-
-To get the latest skills, run `lk skills update`.
-
-**`AGENTS.md`.** Teaches your coding agent LiveKit's best practices for workflows, handoffs, and testing, and has it check its changes with the [agent debugger](https://docs.livekit.io/testing/debugger/).
-
-For more, see the [coding agents guide](https://docs.livekit.io/intro/coding-agents/).
 
 ## Run the agent
 
@@ -119,6 +106,22 @@ The `Simulations` workflow in [`.github/workflows/simulations.yml`](.github/work
 To check a change turn by turn without a live session, use the [agent debugger](https://docs.livekit.io/testing/debugger/) shown in [Run the agent](#run-the-agent).
 
 To debug a running agent, open it in the [Agent Console](https://docs.livekit.io/testing/agent-console/). It shows events, tool calls, and model timing as you talk to the agent. To stream logs from a deployed agent, run `lk agent logs`.
+
+## Using coding agents
+
+This project works with coding agents like [Claude Code](https://claude.com/product/claude-code), [Cursor](https://www.cursor.com/), and [Codex](https://openai.com/codex/).
+
+**Agent skills.** Install LiveKit's [agent skills](https://docs.livekit.io/reference/developer-tools/agent-skills/), which teach your coding agent to build, debug, test, and deploy LiveKit agents:
+
+```console
+lk skills install
+```
+
+To get the latest skills, run `lk skills update`.
+
+**`AGENTS.md`.** Teaches your coding agent LiveKit's best practices for workflows, handoffs, and testing, and has it check its changes with the [agent debugger](https://docs.livekit.io/testing/debugger/).
+
+For more, see the [coding agents guide](https://docs.livekit.io/intro/coding-agents/).
 
 ## Using this template for your own project
 
