@@ -20,7 +20,7 @@ A starter project for building voice AI apps with [LiveKit Agents for Python](ht
    lk cloud auth
    ```
 
-1. Create your project from this starter. The CLI writes your LiveKit Cloud credentials to `.env.local` and installs dependencies and [agent skills](#using-coding-agents) for your coding agents:
+1. Create your project from this starter:
 
    ```console
    lk agent init my-agent --template agent-starter-python
