@@ -25,9 +25,6 @@ lk agent console
 
 `lk agent init` creates your project from this starter, writes your LiveKit Cloud credentials to `.env.local`, and installs dependencies and [agent skills](#using-coding-agents) for your coding agents.
 
-> [!TIP]
-> Use `lk agent init` instead of GitHub's **Use this template** button, which skips the skills and credentials.
-
 ## What's included
 
 The starter includes:
