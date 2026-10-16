@@ -8,16 +8,21 @@ A starter project for building voice AI apps with [LiveKit Agents for Python](ht
 
 ## Getting started
 
-1. Install the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/):
+1. Install the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/) and sign in to LiveKit Cloud:
 
    - **macOS:** `brew install livekit-cli`
    - **Linux:** `curl -sSL https://get.livekit.io/cli | bash`
    - **Windows:** `winget install LiveKit.LiveKitCLI`
 
-1. Create your project from this starter. The CLI writes your LiveKit Cloud credentials to `.env.local` and installs dependencies and [agent skills](#using-coding-agents) for your coding agents:
+   Sign up for a free [LiveKit Cloud](https://cloud.livekit.io/) account if you don't have one, then link it to the CLI:
 
    ```console
    lk cloud auth
+   ```
+
+1. Create your project from this starter. The CLI writes your LiveKit Cloud credentials to `.env.local` and installs dependencies and [agent skills](#using-coding-agents) for your coding agents:
+
+   ```console
    lk agent init my-agent --template agent-starter-python
    ```
 
