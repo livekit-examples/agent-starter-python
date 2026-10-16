@@ -6,6 +6,30 @@
 
 A starter project for building voice AI apps with [LiveKit Agents for Python](https://github.com/livekit/agents) and [LiveKit Cloud](https://cloud.livekit.io/).
 
+## Getting started
+
+Install the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/):
+
+- **macOS:** `brew install livekit-cli`
+- **Linux:** `curl -sSL https://get.livekit.io/cli | bash`
+- **Windows:** `winget install LiveKit.LiveKitCLI`
+
+Create your project and talk to your agent:
+
+```console
+lk cloud auth
+lk agent init my-agent --template agent-starter-python
+cd my-agent
+lk agent console
+```
+
+`lk agent init` creates your project from this starter, writes your LiveKit Cloud credentials to `.env.local`, and installs dependencies and [agent skills](#using-coding-agents) for your coding agents.
+
+> [!TIP]
+> Use `lk agent init` instead of GitHub's **Use this template** button, which skips the skills and credentials.
+
+## What's included
+
 The starter includes:
 
 - A simple [voice AI assistant](https://docs.livekit.io/agents/start/voice-ai/) to extend and customize.
@@ -24,56 +48,6 @@ The starter includes:
 - A `Dockerfile` for [deploying to LiveKit Cloud](https://docs.livekit.io/deploy/agents/).
 
 The starter works with any [custom web or mobile frontend](https://docs.livekit.io/frontends/) or with [telephony](https://docs.livekit.io/telephony/).
-
-## Getting started
-
-Install the [LiveKit CLI](https://docs.livekit.io/intro/basics/cli/), version 2.19.0 or later:
-
-- **macOS:** `brew install livekit-cli`
-- **Linux:** `curl -sSL https://get.livekit.io/cli | bash`
-- **Windows:** `winget install LiveKit.LiveKitCLI`
-
-Check your version with `lk --version`. To update an existing install, see [Update the CLI](https://docs.livekit.io/reference/developer-tools/livekit-cli/#updates).
-
-Then create your project:
-
-```console
-lk cloud auth
-lk agent init my-agent --template agent-starter-python
-```
-
-The CLI clones this starter, writes your credentials to `.env.local`, and installs dependencies and [agent skills](#using-coding-agents) for your coding agents.
-
-> [!TIP]
-> Use this command instead of GitHub's **Use this template** button, which skips the skills and credentials.
-
-<details>
-<summary>Set up the project manually</summary>
-
-Clone the repository and install dependencies into a virtual environment with [uv](https://docs.astral.sh/uv/):
-
-```console
-git clone https://github.com/livekit-examples/agent-starter-python.git
-cd agent-starter-python
-uv sync
-```
-
-If you used **Use this template**, clone your own repository instead.
-
-Sign up for [LiveKit Cloud](https://cloud.livekit.io/), then copy `.env.example` to `.env.local` and fill it in. To have the CLI write your project's URL and API keys into the file instead, run:
-
-```console
-lk cloud auth
-lk app env --write --destination .env.local
-```
-
-Then install the agent skills:
-
-```console
-lk skills install
-```
-
-</details>
 
 ## Using coding agents
 
