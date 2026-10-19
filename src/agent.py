@@ -126,9 +126,9 @@ async def my_agent(ctx: JobContext):
             turn_detection=inference.TurnDetector(),
             # Adaptive interruptions use the turn detector to tell a real interruption from a
             # backchannel like "mhm" or "right", so the agent keeps talking through the latter.
-            # This model is on by default on LiveKit Cloud and in dev mode. Self-hosted usage past the monthly
-            # allowance is billed. See https://docs.livekit.io/deploy/admin/quotas-and-limits/#adaptive-interruption-handling for more information.
-            # To use adaptive interruption handling outside LiveKit Cloud and dev mode, uncomment the next line.
+            # This model is on by default on LiveKit Cloud and in dev mode. To use the model elsewhere,
+            # uncomment the `interruption` line. Self-hosted usage past the monthly allowance is billed.
+            # See https://docs.livekit.io/deploy/admin/quotas-and-limits/#adaptive-interruption-handling for more information.
             # interruption={"mode": "adaptive"},
             # allow the LLM to generate a response while waiting for the end of turn
             # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
