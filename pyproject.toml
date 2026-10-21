@@ -6,12 +6,17 @@ build-backend = "setuptools.build_meta"
 name = "agent-starter-python"
 version = "1.0.0"
 description = "Simple voice AI assistant built with LiveKit Agents for Python"
-requires-python = ">=3.10, <3.15"
+requires-python = ">=3.11, <3.13"
 
 dependencies = [
     "livekit-agents~=1.8",
     "livekit-plugins-ai-coustics~=0.3",
+    "pyobjc-framework-quartz>=11,<13; sys_platform == 'darwin'",
     "python-dotenv",
+    "reachy-animation",
+    "reachy-mini>=1.10",
+    "reachy-motion-generator-api",
+    "sounddevice>=0.5",
 ]
 
 [dependency-groups]
@@ -25,6 +30,13 @@ dev = [
 # yarl 1.24.1 was published with only a cp310 wheel and no sdist, so it can't
 # install on Python 3.11+. Remove this once upstream uploads the remaining wheels.
 constraint-dependencies = ["yarl<1.24"]
+# pygobject and pycairo are Linux-only Reachy dependencies distributed as
+# sdists. This hardware agent is resolved for the macOS host running Reachy.
+environments = ["sys_platform == 'darwin'"]
+
+[tool.uv.sources]
+reachy-animation = { git = "https://github.com/pham-tuan-binh/reachy-animation" }
+reachy-motion-generator-api = { git = "https://github.com/pham-tuan-binh/reachy-motion-generator-api", rev = "2b537b2780b36b332b160d037d8477916b401b12" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -38,7 +50,7 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "B", "A", "C4", "UP", "SIM", "RUF"]

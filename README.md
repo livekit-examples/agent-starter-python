@@ -85,6 +85,17 @@ lk app env --write --destination .env.local
 
 ## Run the agent
 
+Start the Reachy Mini daemon first. Use `--sim` when developing without the
+physical robot:
+
+```console
+reachy-mini-daemon --sim --no-media
+```
+
+Set `REACHY_MOTION_API` in `.env.local` to enable generated gestures. Without
+it, the agent still uses speech-driven head sway. Set
+`REACHY_MOTION_ENABLED=0` to explicitly disable generated gestures.
+
 The `lk agent console`, `lk agent dev`, and `lk agent debugger` commands run your agent on your own machine. To talk to it in your terminal:
 
 ```console
