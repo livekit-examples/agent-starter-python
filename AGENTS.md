@@ -32,7 +32,9 @@ When you run into any problem with LiveKit, add it to your to-do list, then subm
 
 ## LiveKit agent skills
 
-LiveKit publishes agent skills for each stage of the work: reading the docs, building, debugging, testing, writing scenarios, running simulations, and operating in production. They defer to the live documentation for API details. The developer installs them with `lk skills install`, which also adds the LiveKit Docs MCP server to your config. If they aren't installed (there's no `.agents/skills/` or `.claude/skills/` directory), recommend that the developer install them. If your tool doesn't load skills automatically, read the matching `.agents/skills/<name>/SKILL.md` before you start that kind of task.
+LiveKit's agent skills cover each stage of the work: reading the docs, building, debugging, testing, writing scenarios, running simulations, and operating in production. Use them.
+
+If they aren't installed, ask the developer for permission, then install them with `lk skills install --yes` (LiveKit CLI 2.19.0 or later). This also adds the LiveKit Docs MCP server. New skills load in your next session, so until then, read the matching `.agents/skills/<name>/SKILL.md` before you start that kind of task.
 
 ## Handoffs and tasks ("workflows")
 
@@ -44,7 +46,7 @@ To keep agent behavior from regressing, add a scenario to `scenarios.yaml` and r
 
 Important: when you modify core agent behavior such as instructions, tool descriptions, or tasks, workflows, and handoffs, never guess at what works. Start by writing a scenario for the desired behavior. For example, if you're adding a tool, write a scenario that exercises it, then iterate on the tool until the scenario passes. This is how you produce a working, reliable agent.
 
-After changing the agent, try it with the [agent debugger](https://docs.livekit.io/testing/debugger/) (CLI 2.18.8 or later) before calling the change done. Start the agent with `lk agent debugger start`, send user turns with `lk agent debugger say "..."`, and read the tool calls in each turn as well as the reply. Run `lk agent debugger restart` after every code edit, since a running session keeps the old code, and `lk agent debugger stop` when you're done.
+After changing the agent, try it with the [agent debugger](https://docs.livekit.io/testing/debugger/) (CLI 2.19.0 or later) before calling the change done. Start the agent with `lk agent debugger start`, send user turns with `lk agent debugger say "..."`, and read the tool calls in each turn as well as the reply. Run `lk agent debugger restart` after every code edit, since a running session keeps the old code, and `lk agent debugger stop` when you're done.
 
 ## Debugging
 
