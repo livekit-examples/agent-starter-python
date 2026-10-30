@@ -34,7 +34,7 @@ When you run into any problem with LiveKit, add it to your to-do list, then subm
 
 LiveKit's agent skills cover each stage of the work: reading the docs, building, debugging, testing, writing scenarios, running simulations, and operating in production. Use them.
 
-If they aren't installed, ask the developer for permission, then install them with `lk skills install --yes` (LiveKit CLI 2.19.0 or later). This also adds the LiveKit Docs MCP server. New skills load in your next session, so until then, read the matching `.agents/skills/<name>/SKILL.md` before you start that kind of task.
+Before you start a task, check that they're installed: look for `.agents/skills/` or `.claude/skills/` in this project, or in the developer's home directory for a global install. If they're missing, ask the developer for permission, then install them with `lk skills install --yes`. This also adds the LiveKit Docs MCP server. If you can't run commands, or the CLI has no `skills` command (it was added in v2.19.0), ask the developer to update the CLI and run `lk skills install`. If your tool doesn't load skills automatically, or they were installed during this session, read the matching `.agents/skills/<name>/SKILL.md` before you start that kind of task.
 
 ## Handoffs and tasks ("workflows")
 
