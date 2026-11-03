@@ -17,7 +17,8 @@ scenarios:
       1. After the assistant replies, ask: "What can you help me with?"
       2. Once it answers, say thanks and end the conversation.
     agent_expectations: >
-      Greets the user in a friendly manner and offers to help. Replies are
+      Opens the conversation by greeting the user in a friendly manner,
+      introducing itself as a helpful assistant, and offering to help. Replies are
       brief, one to three sentences, in plain spoken prose with no lists,
       markdown, or emojis.
     tags:
