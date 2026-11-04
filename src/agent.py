@@ -170,7 +170,7 @@ async def my_agent(ctx: JobContext):
 
     # Speak first: greet the user and introduce the agent before they say anything
     await session.generate_reply(
-        instructions="Greet the user warmly, introduce yourself as their helpful assistant, and ask how you can help today."
+        instructions="Enthusiastically greet the user and offer to help."
     )
 
 
