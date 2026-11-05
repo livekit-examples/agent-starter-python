@@ -141,11 +141,7 @@ After you create your own project from this template:
 
 ## Deploying to production
 
-To deploy the agent to LiveKit Cloud or another environment with the included `Dockerfile`, see the [deployment guide](https://docs.livekit.io/deploy/agents/).
-
-## Self-hosted LiveKit
-
-You can self-host LiveKit instead of using LiveKit Cloud. See the [self-hosting guide](https://docs.livekit.io/transport/self-hosting/local/). If you self-host, use [model plugins](https://docs.livekit.io/agents/models/#plugins) instead of LiveKit Inference, and remove the [LiveKit Cloud noise cancellation](https://docs.livekit.io/transport/media/noise-cancellation/) plugin.
+To deploy the agent to LiveKit Cloud, see the [deployment guide](https://docs.livekit.io/deploy/agents/).
 
 ## License
 
