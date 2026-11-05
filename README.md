@@ -32,9 +32,10 @@ A starter project for building voice AI apps with [LiveKit Agents for Python](ht
 
    ```console
    cd my-agent
-   uv sync
    lk agent console
    ```
+
+   If you didn't let `lk agent init` install dependencies, run `uv sync` first.
 
 ## What's included
 
