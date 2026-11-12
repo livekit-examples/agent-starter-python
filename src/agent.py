@@ -29,7 +29,10 @@ from livekit.agents import (
     TurnHandlingOptions,
     cli,
     inference,
+    StopResponse,
+    llm,
     room_io,
+    text_transforms,
 )
 from livekit.agents.tts._provider_format import TranscriptMarkupStripper
 from livekit.agents.voice.events import SpeechCreatedEvent
@@ -55,6 +58,30 @@ IDLE_GREETING = (
     'label="leaning in, gently curious, with a friendly voice"/>'
     "How's it going?"
 )
+# Scripted performances, one paragraph per say() so each gets its own gesture.
+# Each is off unless its env var is set: REACHY_STORY=1 lk agent console
+SCRIPTS = {
+    "story": (
+        "story.md",
+        re.compile(r"\b(tell (me|us) (a|the) story|story ?time)\b", re.IGNORECASE),
+    ),
+    # No trigger: with REACHY_DEMO=1 the demo plays once at startup, mic off.
+    "demo": ("demo.md", None),
+}
+SCRIPT_PARTS = {
+    name: [
+        part.strip()
+        for part in (Path(__file__).parent / file).read_text().split("\n\n")
+        if part.strip()
+    ]
+    for name, (file, _) in SCRIPTS.items()
+}
+
+
+def script_enabled(name: str) -> bool:
+    """True when the agent was started with --<name> (or REACHY_<NAME>=1)."""
+    value = os.getenv(f"REACHY_{name.upper()}", "0").strip().lower()
+    return value in {"1", "true", "yes", "on"}
 
 
 def motion_prompt(markup: TranscriptMarkupStripper, spoken: str) -> str | None:
@@ -151,7 +178,7 @@ class ReachySpeaker(AudioOutput):
             samplerate=self.SAMPLE_RATE,
             channels=1,
             dtype="int16",
-            device=reachy_device("output"),
+            device=pick_device("output"),
             callback=self._fill,
         )
         self._stream.start()
@@ -233,6 +260,15 @@ class ReachySpeaker(AudioOutput):
         )
 
 
+TTS_TAIL_S = 0.1
+
+
+def is_quiet(frame: rtc.AudioFrame) -> bool:
+    """True when a TTS frame is silence (below about -40 dBFS)."""
+    pcm = np.frombuffer(frame.data, dtype=np.int16).astype(np.float32)
+    return pcm.size == 0 or float(np.sqrt(np.mean(pcm**2))) < 300
+
+
 def reachy_device(kind: str) -> int | None:
     """Return Reachy's input/output device index, or the host default."""
     channels = f"max_{kind}_channels"
@@ -244,6 +280,26 @@ def reachy_device(kind: str) -> int | None:
         ),
         None,
     )
+
+
+def pick_device(kind: str) -> int | None:
+    """Return the audio device for kind "input" or "output".
+
+    REACHY_INPUT_DEVICE / REACHY_OUTPUT_DEVICE take a device index or a name
+    substring, for example "Wireless Microphone RX" or "JBL Charge 4". Unset
+    or not found = Reachy's own mic or speaker.
+    """
+    var = f"REACHY_{kind.upper()}_DEVICE"
+    wanted = os.getenv(var, "").strip()
+    if not wanted:
+        return reachy_device(kind)
+    if wanted.isdigit():
+        return int(wanted)
+    for device in sd.query_devices():
+        if wanted.lower() in device["name"].lower() and device[f"max_{kind}_channels"] > 0:
+            return device["index"]
+    logger.warning("%s=%r not found; using Reachy's %s", var, wanted, kind)
+    return reachy_device(kind)
 
 
 def noise_enhancer() -> ai_coustics.AICousticsAudioEnhancer:
@@ -263,6 +319,8 @@ class ReachyMic(AudioInput):
         super().__init__(label="ReachyMic")
         self._loop = asyncio.get_running_loop()
         self._frames: asyncio.Queue[bytes] = asyncio.Queue(maxsize=100)
+        # Muted by session.input.set_audio_enabled(False), e.g. in demo mode.
+        self._muted = False
         self._enhancer: ai_coustics.AICousticsAudioEnhancer | None = None
         if url := os.getenv("LIVEKIT_URL"):
             self._enhancer = noise_enhancer()
@@ -305,8 +363,22 @@ class ReachyMic(AudioInput):
             self._frames.get_nowait()
         self._frames.put_nowait(data)
 
+    def on_attached(self) -> None:
+        super().on_attached()
+        self._muted = False
+        logger.info("mic: unmuted")
+
+    def on_detached(self) -> None:
+        # The session keeps reading frames after audio input is turned off, so
+        # this input has to go silent itself.
+        super().on_detached()
+        self._muted = True
+        logger.info("mic: muted")
+
     async def __anext__(self) -> rtc.AudioFrame:
         data = await self._frames.get()
+        if self._muted:
+            data = bytes(len(data))
         frame = rtc.AudioFrame(data, self.SAMPLE_RATE, 1, len(data) // 2)
         return self._enhancer._process(frame) if self._enhancer else frame
 
@@ -371,6 +443,38 @@ class Assistant(Agent):
         self._animator = animator
         self._motion = motion
 
+    async def on_user_turn_completed(
+        self,
+        turn_ctx: llm.ChatContext,
+        new_message: llm.ChatMessage,
+    ) -> None:
+        """Play a scripted performance instead of an LLM reply when its trigger matches."""
+        if script_enabled("demo"):
+            # Demo mode takes no input: drop anything typed or heard.
+            raise StopResponse()
+        text = new_message.text_content or ""
+        name = next(
+            (
+                name
+                for name, (_, trigger) in SCRIPTS.items()
+                if trigger is not None and script_enabled(name) and trigger.search(text)
+            ),
+            None,
+        )
+        if name is None:
+            return
+        parts = SCRIPT_PARTS[name]
+        logger.info("%s: triggered, playing %d parts", name, len(parts))
+        for i, part in enumerate(parts):
+            # Only the closing line goes into the chat history, so the LLM can
+            # follow up on it without the whole script filling the context.
+            self.session.say(
+                part,
+                allow_interruptions=False,
+                add_to_chat_ctx=i == len(parts) - 1,
+            )
+        raise StopResponse()
+
     async def tts_node(
         self,
         text: AsyncIterable[str],
@@ -388,6 +492,10 @@ class Assistant(Agent):
                 yield chunk
 
         started = False
+        # Inworld ends each reply with ~0.4 s of silence. The agent counts it as
+        # speaking (and drops mic audio), so hold quiet frames back and only
+        # play them if more speech follows. The end keeps a short natural tail.
+        quiet: list[rtc.AudioFrame] = []
         async for frame in Agent.default.tts_node(
             self,
             read_markup(text),
@@ -399,7 +507,19 @@ class Assistant(Agent):
                 if self._animator and self._motion and prompt:
                     logger.info("reply motion: %s", prompt)
                     self._animator.play(partial(self._motion.dense, prompt))
+            if is_quiet(frame):
+                quiet.append(frame)
+                continue
+            for held in quiet:
+                yield held
+            quiet.clear()
             yield frame
+        tail = 0.0
+        for held in quiet:
+            if tail >= TTS_TAIL_S:
+                break
+            tail += held.duration
+            yield held
 
     # To add tools, use the @function_tool decorator.
     # Here's an example that adds a simple weather tool.
@@ -427,7 +547,16 @@ async def my_agent(ctx: JobContext) -> None:
     ctx.log_context_fields = {"room": ctx.room.name}
 
     # no_media releases the camera and USB audio so this process can own them.
-    robot = await asyncio.to_thread(ReachyMini, media_backend="no_media")
+    max_body_speed_deg_s = float(os.getenv("REACHY_MAX_BODY_SPEED_DEG_S", "10"))
+    # The SDK also turns the base on its own when the head yaws
+    # (automatic_body_yaw). Turn that off too when the base should stay still.
+    robot = await asyncio.to_thread(
+        partial(
+            ReachyMini,
+            media_backend="no_media",
+            automatic_body_yaw=max_body_speed_deg_s > 0,
+        )
+    )
     gaze = FaceGaze()
     animator = Animator(
         idle=Breathing(
@@ -438,7 +567,6 @@ async def my_agent(ctx: JobContext) -> None:
         speech_latency_s=float(os.getenv("REACHY_SPEECH_LATENCY_S", "0")),
     )
     animator.set_speech_sway(0.3)
-    max_body_speed_deg_s = float(os.getenv("REACHY_MAX_BODY_SPEED_DEG_S", "10"))
     body_yaw_limiter = BodyYawLimiter(max_body_speed_deg_s)
     logger.info(
         "base: limiting rotation to %.1f degrees/s",
@@ -460,12 +588,12 @@ async def my_agent(ctx: JobContext) -> None:
         animator,
         volume=float(os.getenv("REACHY_VOLUME", "1.5")),
     )
-    face_monitor_task: asyncio.Task[None] | None = None
+    background_task: asyncio.Task[None] | None = None
 
     async def shutdown() -> None:
-        if face_monitor_task is not None:
-            face_monitor_task.cancel()
-            await asyncio.gather(face_monitor_task, return_exceptions=True)
+        if background_task is not None:
+            background_task.cancel()
+            await asyncio.gather(background_task, return_exceptions=True)
         speaker.close()
         animator.close()
         gaze.close()
@@ -501,17 +629,57 @@ async def my_agent(ctx: JobContext) -> None:
         ),
         tts=inference.TTS(
             model="inworld/inworld-tts-2",
-            voice="Sarah",
+            voice="Edward",
+            extra_kwargs={
+                # STABLE | BALANCED (Inworld default) | CREATIVE. STABLE keeps soft
+                # labels from swinging the voice slow and quiet in a loud hall.
+                "delivery_mode": "STABLE",
+                # 0.5–1.5, 1.0 = the voice's normal speed.
+                "speaking_rate": 1.1,
+            },
         ),
         turn_handling=TurnHandlingOptions(
             turn_detection=inference.TurnDetector(),
+            # Defaults here are 0.3 s / 2.5 s. min_delay is the wait once the
+            # turn detector thinks you're done; max_delay caps the wait when it
+            # thinks you might keep going ("um...", mid-thought pauses).
+            endpointing={
+                "min_delay": 0.2,
+                "max_delay": 1.2,
+            },
             interruption={
+                # Visitors can talk over Reachy. Scripted say() calls still
+                # pass allow_interruptions=False; during those, speech-to-text
+                # gets silence so it can't hear Reachy and answer itself.
                 "enabled": True,
-                "resume_false_interruption": True,
+                "discard_audio_if_uninterruptible": True,
             },
             preemptive_generation={"enabled": True},
         ),
         expressive={"tts_instructions_append": BODY_TAGS},
+        # Applied to the raw LLM text (expression labels included) before TTS, so it
+        # also rewrites labels and the idle greeting. Keep the two default filters.
+        tts_text_transforms=[
+            "filter_emoji",
+            "filter_markdown",
+            text_transforms.replace(
+                {
+                    # Inworld inline IPA, one word per slash pair: "live" as in "five".
+                    # Fallback if a voice ignores it: "Lyve Kit".
+                    "LiveKit": "/laɪv/ Kit",
+                    # Soft delivery words make Inworld go slow and quiet in a loud hall.
+                    # Matching ignores case, so lowercase keys cover "Gently" too.
+                    "half-whispered": "clear",
+                    "slowing down": "steady",
+                    "whispering": "clear",
+                    "gently": "warmly",
+                    "softly": "warmly",
+                    "quietly": "calmly",
+                    "hushed": "clear",
+                    "slowly": "steadily",
+                }
+            ),
+        ],
     )
 
     def on_speech_done(handle: SpeechHandle) -> None:
@@ -537,13 +705,37 @@ async def my_agent(ctx: JobContext) -> None:
     session.output.audio = speaker
     if (
         cli.AgentsConsole.get_instance().enabled
-        and (mic_device := reachy_device("input")) is not None
+        and (mic_device := pick_device("input")) is not None
     ):
         mic = ReachyMic(mic_device)
         session.input.audio = mic
         ctx.add_shutdown_callback(lambda: asyncio.to_thread(mic.close))
 
     await ctx.connect()
+
+    if script_enabled("demo"):
+        # Demo mode: mic off, play the LiveKit demo, and start it again every
+        # REACHY_DEMO_EVERY_S seconds (start to start) until quit. Returning
+        # here also skips the face-triggered greeting.
+        session.input.set_audio_enabled(False)
+        parts = SCRIPT_PARTS["demo"]
+        every_s = float(os.getenv("REACHY_DEMO_EVERY_S", "300"))
+
+        async def loop_demo() -> None:
+            while True:
+                started = time.monotonic()
+                logger.info("demo: playing %d parts with the mic off", len(parts))
+                handles = [
+                    session.say(part, allow_interruptions=False, add_to_chat_ctx=False)
+                    for part in parts
+                ]
+                await handles[-1].wait_for_playout()
+                wait_s = max(0.0, every_s - (time.monotonic() - started))
+                logger.info("demo: done; next run in %.0f s", wait_s)
+                await asyncio.sleep(wait_s)
+
+        background_task = asyncio.create_task(loop_demo(), name="demo-loop")
+        return
 
     async def monitor_face_presence() -> None:
         state = IdleGreetingState(
@@ -572,7 +764,7 @@ async def my_agent(ctx: JobContext) -> None:
                 session.say(IDLE_GREETING)
             await asyncio.sleep(0.2)
 
-    face_monitor_task = asyncio.create_task(
+    background_task = asyncio.create_task(
         monitor_face_presence(),
         name="face-presence-monitor",
     )
