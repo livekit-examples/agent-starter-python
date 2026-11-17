@@ -102,7 +102,9 @@ async def my_agent(ctx: JobContext):
     session = AgentSession(
         # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
         # See all available models at https://docs.livekit.io/agents/models/stt/
-        stt=inference.STT(model="assemblyai/universal-3-6-pro", language="en"),
+        stt=inference.STT(
+            model="assemblyai/assemblyai-stt-3-7-realtime-agent", language="en"
+        ),
         # Keyterms bias the STT toward distinctive words it would otherwise misspell.
         # List your own names, brands, and jargon in `keyterms`. Detection additionally
         # extracts terms from the live conversation, such as a caller's name, and applies
