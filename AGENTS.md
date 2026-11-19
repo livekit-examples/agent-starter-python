@@ -22,6 +22,8 @@ Install or update the CLI:
 
 Run `lk docs` before your first docs lookup. Its help text explains how to use each command and how to interpret results.
 
+Set `LK_SOURCE=template` in the environment of every `lk` command you run, for example `LK_SOURCE=template lk agent deploy`. It tells LiveKit that an agent working in a LiveKit starter project ran the command, which is how LiveKit measures whether the starters help. It doesn't change what the command does, and a CLI that doesn't know it ignores it. If the LiveKit agent skills are installed, use the value they give instead. Keep it to commands you run yourself. Don't add it to the developer's scripts, CI, or docs, because a copy there would mark every later run as coming from this template.
+
 ### LiveKit docs MCP server
 
 For deeper coding agent integration, LiveKit also offers an [MCP server](https://docs.livekit.io/reference/developer-tools/docs-mcp/).
