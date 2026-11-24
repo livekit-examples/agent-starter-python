@@ -13,6 +13,7 @@ from livekit.agents import (
     inference,
     room_io,
 )
+from livekit.agents.beta import EndCallTool
 from livekit.plugins import ai_coustics
 
 logger = logging.getLogger("agent")
@@ -67,9 +68,13 @@ class Assistant(Agent):
                 - Protect privacy and minimize sensitive data.
                 """
             ),
+            # EndCallTool lets the agent hang up when the user is done, and deletes the room
+            # so every participant, including SIP callers, is disconnected.
+            # See more at https://docs.livekit.io/agents/prebuilt/tools/end-call-tool/
+            tools=[EndCallTool()],
         )
 
-    # To add tools, use the @function_tool decorator.
+    # To add your own tools, use the @function_tool decorator.
     # Here's an example that adds a simple weather tool.
     # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
     # @function_tool
@@ -91,7 +96,7 @@ server = AgentServer()
 
 
 @server.rtc_session(agent_name="my-agent")
-async def my_agent(ctx: JobContext):
+async def my_agent(ctx: JobContext) -> None:
     # Logging setup
     # Add any other context you want in all log entries here
     ctx.log_context_fields = {
@@ -115,7 +120,11 @@ async def my_agent(ctx: JobContext):
         # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
         # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
         tts=inference.TTS(
-            model="fishaudio/s2.1-pro", voice="fa4c9eb3dccc4806b382b40d61c6b10a"
+            model="fishaudio/s2.1-pro",
+            voice="fa4c9eb3dccc4806b382b40d61c6b10a",
+            # If the primary model fails, LiveKit Inference tries these models in order
+            # See more at https://docs.livekit.io/agents/logic/fallback-strategies/
+            fallback=[{"model": "rime/coda", "voice": "astra"}],
         ),
         turn_handling=TurnHandlingOptions(
             # The LiveKit turn detector determines when the user is done speaking and the agent should respond.
