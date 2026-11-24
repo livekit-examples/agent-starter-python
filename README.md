@@ -139,7 +139,6 @@ After you create your own project from this template:
 - **Commit `uv.lock`.** The template doesn't track it, but your project should, for reproducible builds. If you deploy to LiveKit Cloud, commit `livekit.toml` too.
 - **Commit the agent skills** and `skills-lock.json`, if you installed them in the project.
 - **Add repository secrets.** Add `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` as [repository secrets](https://docs.github.com/en/actions/how-tos/writing-workflows/choosing-what-your-workflow-does/using-secrets-in-github-actions) so the simulations can run in CI.
-- **Delete the template maintainer notes.** Remove the "Maintaining this template" section from `AGENTS.md`.
 
 ## Deploying to production
 
