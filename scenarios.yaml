@@ -52,3 +52,17 @@ scenarios:
       alternative, such as the friend using the official account recovery flow.
     tags:
       feature: guardrails
+
+  - id: SCN_TtzF5iELiBRA
+    label: Ends the call when the user is done
+    instructions: |
+      PERSONA: A user with one quick question who wants to hang up as soon as it's answered.
+      OPENING LINE: "What's the capital of France?"
+      DO, IN ORDER:
+      1. Once the assistant answers, say: "Great, that's all I needed. Bye!"
+    agent_expectations: >
+      Answers the question briefly, then says goodbye and ends the call with the
+      end_call tool once the user says they are done. Does not end the call
+      before the question is answered.
+    tags:
+      feature: end-call
